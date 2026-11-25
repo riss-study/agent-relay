@@ -13,7 +13,7 @@ claude --version
 node --version
 ```
 
-GitHub 의 이 저장소를 마켓플레이스로 등록하고 플러그인을 설치한다. 아무 폴더에서나 `claude` 를 켜고 세션 안에서 실행한다. 비공개 저장소라 GitHub 계정에 읽기 권한이 있어야 하고 git 이 GitHub 인증을 갖고 있어야 한다.
+GitHub 의 이 저장소를 마켓플레이스로 등록하고 플러그인을 설치한다. 아무 폴더에서나 `claude` 를 켜고 세션 안에서 실행한다. 공개 저장소라 GitHub 계정이 없어도 된다.
 
 ```text
 /plugin marketplace add riss-study/agent-relay
