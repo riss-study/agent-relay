@@ -1,0 +1,14 @@
+{
+  "name": "agent-relay",
+  "owner": { "name": "agent-relay" },
+  "metadata": { "description": "agent-relay 중계 서버의 Claude Code 플러그인", "version": "1.0.0" },
+  "plugins": [
+    {
+      "name": "relay",
+      "source": "./plugin",
+      "description": "팀원의 Claude Code 세션끼리 중계 서버로 질문과 답을 주고받는 채널. /relay:join 으로 참가한다.",
+      "version": "1.0.0",
+      "category": "collaboration"
+    }
+  ]
+}

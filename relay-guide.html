@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>agent-relay 설계와 배포</title>
+<style>
+:root {
+  --bg: #fbfaf7;
+  --surface: #ffffff;
+  --surface-2: #f3f1ec;
+  --text: #1f1d1a;
+  --muted: #6b665e;
+  --border: #e2ded6;
+  --accent: #b4532a;
+  --accent-soft: #f6e6dc;
+  --blue: #2f5d8a;
+  --blue-soft: #e3ecf5;
+  --green: #3c7a4a;
+  --green-soft: #e3f0e5;
+  --purple: #6b4f96;
+  --purple-soft: #ece6f5;
+  --warn: #9a6a00;
+  --warn-soft: #fbf1d9;
+  --code-bg: #f3f1ec;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #171614;
+    --surface: #1f1e1b;
+    --surface-2: #26241f;
+    --text: #ece8e1;
+    --muted: #a39d93;
+    --border: #3a3732;
+    --accent: #e08a5f;
+    --accent-soft: #3a261b;
+    --blue: #8db6e0;
+    --blue-soft: #1d2a38;
+    --green: #8cc49a;
+    --green-soft: #1d2d21;
+    --purple: #b9a0e0;
+    --purple-soft: #2a2238;
+    --warn: #e2b850;
+    --warn-soft: #33290f;
+    --code-bg: #24221e;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #171614;
+  --surface: #1f1e1b;
+  --surface-2: #26241f;
+  --text: #ece8e1;
+  --muted: #a39d93;
+  --border: #3a3732;
+  --accent: #e08a5f;
+  --accent-soft: #3a261b;
+  --blue: #8db6e0;
+  --blue-soft: #1d2a38;
+  --green: #8cc49a;
+  --green-soft: #1d2d21;
+  --purple: #b9a0e0;
+  --purple-soft: #2a2238;
+  --warn: #e2b850;
+  --warn-soft: #33290f;
+  --code-bg: #24221e;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.75;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.layout { max-width: 1160px; margin: 0 auto; padding: 0 16px; display: grid; grid-template-columns: 1fr; gap: 40px; }
+@media (min-width: 1000px) { .layout { grid-template-columns: 220px 1fr; } }
+nav.toc { display: none; }
+@media (min-width: 1000px) {
+  nav.toc { display: block; position: sticky; top: 24px; align-self: start; padding-top: 48px; font-size: 14px; }
+  nav.toc ol { list-style: none; padding: 0; margin: 0; }
+  nav.toc li { margin: 2px 0; }
+  nav.toc a { color: var(--muted); text-decoration: none; display: block; padding: 3px 8px; border-left: 2px solid transparent; }
+  nav.toc a:hover { color: var(--text); border-left-color: var(--accent); }
+}
+main { min-width: 0; padding: 48px 0 96px; max-width: 780px; }
+header.hero h1 { font-size: 32px; line-height: 1.3; margin: 0 0 12px; letter-spacing: -0.01em; }
+header.hero p.lead { font-size: 18px; color: var(--muted); margin: 0 0 20px; }
+.meta { font-size: 13px; color: var(--muted); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 10px 0; margin-bottom: 40px; }
+h2 { font-size: 24px; margin: 64px 0 16px; padding-top: 8px; line-height: 1.35; scroll-margin-top: 16px; }
+h2 .num { color: var(--accent); font-family: var(--mono); font-size: 18px; margin-right: 8px; }
+h3 { font-size: 19px; margin: 36px 0 10px; line-height: 1.4; }
+h4 { font-size: 16px; margin: 24px 0 6px; }
+p { margin: 0 0 14px; }
+a { color: var(--blue); }
+code { font-family: var(--mono); font-size: 0.88em; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+pre { font-family: var(--mono); font-size: 13.5px; line-height: 1.6; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 0 0 18px; }
+pre code { background: none; padding: 0; font-size: inherit; }
+.cm { color: var(--muted); }
+.hl { color: var(--accent); font-weight: 600; }
+.src { font-size: 13px; color: var(--muted); margin-top: -10px; margin-bottom: 18px; }
+.src code { font-size: 12px; }
+table { width: 100%; border-collapse: collapse; font-size: 14.5px; margin: 0 0 20px; }
+.tbl { overflow-x: auto; margin: 0 0 20px; }
+.tbl table { margin: 0; min-width: 560px; }
+th, td { text-align: left; vertical-align: top; padding: 9px 10px; border-bottom: 1px solid var(--border); }
+th { font-size: 13px; color: var(--muted); font-weight: 600; background: var(--surface-2); }
+td code { white-space: nowrap; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; margin: 0 0 20px; }
+.card > :last-child { margin-bottom: 0; }
+.note { border-left: 3px solid var(--blue); background: var(--blue-soft); border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 0 0 20px; }
+.note > :last-child, .warn > :last-child, .guess > :last-child { margin-bottom: 0; }
+.note strong.lbl, .warn strong.lbl, .guess strong.lbl { display: block; font-size: 13px; letter-spacing: 0.02em; margin-bottom: 4px; }
+.warn { border-left: 3px solid var(--warn); background: var(--warn-soft); border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 0 0 20px; }
+.guess { border-left: 3px dashed var(--purple); background: var(--purple-soft); border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 0 0 20px; }
+.tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+.tag.cc { background: var(--blue-soft); color: var(--blue); }
+.tag.pl { background: var(--accent-soft); color: var(--accent); }
+.tag.sv { background: var(--purple-soft); color: var(--purple); }
+.tag.sh { background: var(--green-soft); color: var(--green); }
+.figure { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin: 0 0 8px; overflow-x: auto; }
+.figure svg { display: block; width: 100%; height: auto; min-width: 640px; }
+.caption { font-size: 13px; color: var(--muted); margin: 0 0 24px; }
+ol.steps { padding-left: 0; list-style: none; counter-reset: s; margin: 0 0 20px; }
+ol.steps > li { counter-increment: s; position: relative; padding-left: 40px; margin-bottom: 14px; }
+ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: 2px; width: 26px; height: 26px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+ul { padding-left: 20px; margin: 0 0 16px; }
+li { margin-bottom: 6px; }
+.alias { font-family: var(--mono); font-size: 14px; line-height: 2.2; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin: 0 0 16px; overflow-x: auto; white-space: nowrap; }
+.alias span { padding: 3px 6px; border-radius: 4px; }
+.alias .a1 { background: var(--green-soft); color: var(--green); }
+.alias .a2 { background: var(--accent-soft); color: var(--accent); }
+.alias .a3 { background: var(--blue-soft); color: var(--blue); }
+.alias .a4 { background: var(--purple-soft); color: var(--purple); }
+.alias .a5 { background: var(--warn-soft); color: var(--warn); }
+details { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; margin: 0 0 14px; }
+details summary { cursor: pointer; font-weight: 600; }
+details[open] summary { margin-bottom: 10px; }
+footer { margin-top: 64px; font-size: 13px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 16px; }
+
+/* svg */
+.s-box { fill: var(--surface-2); stroke: var(--border); stroke-width: 1.5; }
+.s-cc { fill: var(--blue-soft); stroke: var(--blue); stroke-width: 1.5; }
+.s-pl { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; }
+.s-sv { fill: var(--purple-soft); stroke: var(--purple); stroke-width: 1.5; }
+.s-t { fill: var(--text); font-family: var(--sans); font-size: 14px; }
+.s-tb { fill: var(--text); font-family: var(--sans); font-size: 14px; font-weight: 700; }
+.s-m { fill: var(--muted); font-family: var(--sans); font-size: 12px; }
+.s-mono { fill: var(--muted); font-family: var(--mono); font-size: 11.5px; }
+.s-line { stroke: var(--muted); stroke-width: 1.5; fill: none; }
+.s-life { stroke: var(--border); stroke-width: 1.5; stroke-dasharray: 4 4; }
+.s-ws { stroke: var(--purple); stroke-width: 2; fill: none; }
+.s-io { stroke: var(--accent); stroke-width: 2; fill: none; }
+.s-arrow-ws { fill: var(--purple); }
+.s-arrow-io { fill: var(--accent); }
+.s-arrow-m { fill: var(--muted); }
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="toc" aria-label="목차">
+<ol>
+<li><a href="#s1">1. 한눈에 보기</a></li>
+<li><a href="#s2">2. 전체 구조</a></li>
+<li><a href="#s3">3. 메시지가 오가는 순서</a></li>
+<li><a href="#s4">4. 소스코드 구조</a></li>
+<li><a href="#s5">5. 설계</a></li>
+<li><a href="#s6">6. 서버가 받는 요청 전부</a></li>
+<li><a href="#s7">7. 배포 절차</a></li>
+<li><a href="#s8">8. 운영</a></li>
+<li><a href="#s9">9. 검증한 것과 안 한 것</a></li>
+<li><a href="#s10">10. 문제가 생겼을 때</a></li>
+</ol>
+</nav>
+
+<main>
+<header class="hero">
+<h1>agent-relay 서버 설계와 배포 안내</h1>
+<p class="lead">team-relay 플러그인 0.10.2 를 그대로 쓰면서 중계 서버만 우리가 운영하기 위한 문서입니다. 지금 만들어진 서버가 어떻게 생겼고, 어디에 어떻게 올리며, 팀원은 무엇을 하면 되는지를 적었습니다.</p>
+</header>
+<div class="meta">
+작성일 2026-11-15. 기준 코드: 이 폴더의 <code>server/relay.ts</code> 828줄, <code>server/frames.ts</code> 147줄, <code>server/relay.test.ts</code> 327줄. 실행 환경 Node 24.15. 플러그인 계약은 <code>docs/wire-protocol.md</code> 에 있고 이 문서는 그 계약을 다시 적지 않습니다.
+</div>
+
+<!-- 1 -->
+<h2 id="s1"><span class="num">1</span>한눈에 보기</h2>
+
+<p>팀원마다 Claude Code 세션이 하나씩 있고, 각 세션에는 배재원이 만든 team-relay 플러그인이 붙어 있습니다. 플러그인은 서버 주소 하나를 알고 그곳에 웹소켓으로 붙습니다. 지금까지는 그 주소가 배재원의 서버였고, 이제 우리 서버로 바꿉니다. 플러그인은 손대지 않습니다.</p>
+
+<div class="card">
+<p><strong>만들어진 것</strong></p>
+<ul>
+<li>서버 한 파일. 참가, 메시지 전달과 보관, 답장 스레드, 무응답 통지, 방 담당, 기록 조회, 합의, 방 메모리, 방장 명령, 발신 상한, 관리자 HTTP(초대, 방장 지정, 토큰 폐기)가 들어 있습니다.</li>
+<li>저장은 sqlite 파일 하나(<code>state.db</code>)입니다. 서버를 재시작해도 멤버와 보관 메시지, 기록, 무응답 타이머가 남습니다.</li>
+<li>테스트 세 개가 실제 소켓으로 위 기능을 전부 돌립니다. <code>npm test</code> 로 2초 안에 끝납니다.</li>
+</ul>
+</div>
+
+<div class="warn"><strong class="lbl">아직 안 한 것</strong>
+<p>다른 컴퓨터와 실제로 연결해 본 적이 없습니다. 검증은 이 Mac 안에서 플러그인 세션 하나와 스크립트 상대로만 했습니다. 외부망에 TLS 를 붙여 올린 적도 없습니다. 7절의 절차가 그 일을 위한 것입니다.</p>
+</div>
+
+<!-- 2 -->
+<h2 id="s2"><span class="num">2</span>전체 구조</h2>
+
+<p>그림에서 보라색 선은 웹소켓, 주황색 선은 세션 안에서 플러그인과 Claude Code 가 주고받는 표준 입출력입니다. 서버는 팀원 수와 상관없이 한 곳에 한 대만 있습니다.</p>
+
+<div class="figure">
+<svg viewBox="0 0 900 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="전체 구조">
+<defs>
+<marker id="aw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="s-arrow-ws"/></marker>
+<marker id="am" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="s-arrow-m"/></marker>
+</defs>
+<!-- 팀원 A -->
+<rect x="20" y="30" width="250" height="150" rx="10" class="s-box"/>
+<text x="36" y="56" class="s-tb">팀원 A 의 PC (규영)</text>
+<rect x="36" y="70" width="218" height="40" rx="6" class="s-cc"/>
+<text x="48" y="95" class="s-t">Claude Code 세션</text>
+<rect x="36" y="124" width="218" height="40" rx="6" class="s-pl"/>
+<text x="48" y="149" class="s-t">team-relay 플러그인 0.10.2</text>
+<line x1="145" y1="110" x2="145" y2="124" class="s-io"/>
+<!-- 팀원 B -->
+<rect x="20" y="240" width="250" height="150" rx="10" class="s-box"/>
+<text x="36" y="266" class="s-tb">팀원 B 의 PC (선혁)</text>
+<rect x="36" y="280" width="218" height="40" rx="6" class="s-cc"/>
+<text x="48" y="305" class="s-t">Claude Code 세션</text>
+<rect x="36" y="334" width="218" height="40" rx="6" class="s-pl"/>
+<text x="48" y="359" class="s-t">team-relay 플러그인 0.10.2</text>
+<line x1="145" y1="320" x2="145" y2="334" class="s-io"/>
+<!-- 서버 -->
+<rect x="470" y="60" width="300" height="300" rx="10" class="s-sv"/>
+<text x="486" y="88" class="s-tb">서버 컴퓨터 (한 대)</text>
+<rect x="486" y="104" width="268" height="54" rx="6" class="s-box"/>
+<text x="498" y="126" class="s-t">TLS 종료 프록시 (Caddy)</text>
+<text x="498" y="146" class="s-mono">외부망일 때만. wss 를 ws 로 바꿔 넘긴다</text>
+<rect x="486" y="176" width="268" height="90" rx="6" class="s-box"/>
+<text x="498" y="198" class="s-t">node server/relay.ts</text>
+<text x="498" y="218" class="s-mono">/ws 웹소켓 (플러그인용)</text>
+<text x="498" y="236" class="s-mono">/admin/* HTTP (관리자용)</text>
+<text x="498" y="254" class="s-mono">1분마다 만료 정리</text>
+<rect x="486" y="284" width="268" height="58" rx="6" class="s-box"/>
+<text x="498" y="306" class="s-t">state.db (sqlite)</text>
+<text x="498" y="326" class="s-mono">state 표 1행 JSON + history 표</text>
+<line x1="620" y1="158" x2="620" y2="176" class="s-line" marker-end="url(#am)"/>
+<line x1="620" y1="266" x2="620" y2="284" class="s-line" marker-end="url(#am)"/>
+<!-- 웹소켓 선 -->
+<path d="M270,144 C380,144 380,130 486,130" class="s-ws" marker-end="url(#aw)" marker-start="url(#aw)"/>
+<text x="300" y="120" class="s-m">wss://relay.example.com/ws</text>
+<path d="M270,354 C380,354 380,130 486,130" class="s-ws" marker-end="url(#aw)" marker-start="url(#aw)"/>
+<text x="300" y="380" class="s-m">같은 LAN 이면 ws://서버IP:8765/ws</text>
+<!-- 관리자 -->
+<rect x="790" y="176" width="100" height="90" rx="6" class="s-box"/>
+<text x="802" y="200" class="s-t">관리자</text>
+<text x="802" y="220" class="s-mono">curl</text>
+<text x="802" y="238" class="s-mono">초대, 방장,</text>
+<text x="802" y="256" class="s-mono">폐기</text>
+<line x1="790" y1="221" x2="754" y2="221" class="s-line" marker-end="url(#am)"/>
+</svg>
+</div>
+<p class="caption">플러그인은 서버 주소만 알고 서버 코드는 모릅니다. 그래서 서버는 팀원 PC 에 설치되지 않고 깃허브 배포도 필요 없습니다.</p>
+
+<h3>각 부분이 하는 일</h3>
+<div class="tbl"><table>
+<tr><th>부분</th><th>어디에</th><th>하는 일</th><th>우리가 손대는가</th></tr>
+<tr><td><span class="tag cc">Claude Code</span></td><td>팀원 PC</td><td>플러그인이 넣어 주는 <code>&lt;channel&gt;</code> 태그를 대화에 끼워 모델에게 보여 주고, 모델이 <code>team_send</code> 같은 도구를 부르면 플러그인에 넘긴다</td><td>아니요</td></tr>
+<tr><td><span class="tag pl">team-relay 플러그인</span></td><td>팀원 PC</td><td>서버에 웹소켓으로 붙어 요청을 보내고 푸시를 받는다. 30초마다 doctor 하트비트, 끊기면 재접속</td><td>아니요. 배재원 저장소에서 설치</td></tr>
+<tr><td><span class="tag sv">relay.ts</span></td><td>서버 컴퓨터</td><td>누가 어느 방에 있는지, 누구에게 전할지, 없으면 보관, 기한과 상한을 관리한다</td><td>예. 이 폴더 전부</td></tr>
+<tr><td><span class="tag sv">state.db</span></td><td>서버 컴퓨터</td><td>멤버와 토큰, 보관 메시지, 기록, 합의, 메모리를 담는 sqlite 파일</td><td>백업만</td></tr>
+<tr><td><span class="tag sh">Caddy</span></td><td>서버 컴퓨터</td><td>외부망일 때 인증서를 자동으로 받고 wss 를 평문 ws 로 바꿔 relay.ts 에 넘긴다</td><td>설정 두 줄</td></tr>
+</table></div>
+
+<!-- 3 -->
+<h2 id="s3"><span class="num">3</span>메시지가 오가는 순서</h2>
+
+<p>규영이 선혁에게 질문하고 답을 받는 가장 흔한 흐름입니다. 세션이 뜰 때의 선접속부터 적었습니다.</p>
+
+<div class="figure">
+<svg viewBox="0 0 900 560" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="메시지 순서">
+<defs>
+<marker id="aw2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="s-arrow-ws"/></marker>
+<marker id="ai2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="s-arrow-io"/></marker>
+</defs>
+<g>
+<rect x="20" y="20" width="170" height="36" rx="6" class="s-cc"/><text x="105" y="44" text-anchor="middle" class="s-tb">규영 세션</text>
+<rect x="250" y="20" width="170" height="36" rx="6" class="s-pl"/><text x="335" y="44" text-anchor="middle" class="s-tb">규영 플러그인</text>
+<rect x="480" y="20" width="170" height="36" rx="6" class="s-sv"/><text x="565" y="44" text-anchor="middle" class="s-tb">서버</text>
+<rect x="710" y="20" width="170" height="36" rx="6" class="s-pl"/><text x="795" y="44" text-anchor="middle" class="s-tb">선혁 플러그인과 세션</text>
+<line x1="105" y1="56" x2="105" y2="540" class="s-life"/>
+<line x1="335" y1="56" x2="335" y2="540" class="s-life"/>
+<line x1="565" y1="56" x2="565" y2="540" class="s-life"/>
+<line x1="795" y1="56" x2="795" y2="540" class="s-life"/>
+</g>
+<!-- 1 선접속 -->
+<text x="20" y="90" class="s-m">세션 시작</text>
+<line x1="335" y1="110" x2="565" y2="110" class="s-ws" marker-end="url(#aw2)"/><text x="450" y="104" text-anchor="middle" class="s-mono">hello gateway:false (1.5초 안에)</text>
+<line x1="565" y1="136" x2="335" y2="136" class="s-ws" marker-end="url(#aw2)"/><text x="450" y="130" text-anchor="middle" class="s-mono">welcome: 규약 본문, 방 메모리</text>
+<line x1="335" y1="162" x2="105" y2="162" class="s-io" marker-end="url(#ai2)"/><text x="220" y="156" text-anchor="middle" class="s-mono">시스템 프롬프트에 규약 삽입</text>
+<line x1="335" y1="192" x2="565" y2="192" class="s-ws" marker-end="url(#aw2)"/><text x="450" y="186" text-anchor="middle" class="s-mono">hello gateway:true rooms:[web3]</text>
+<line x1="565" y1="218" x2="335" y2="218" class="s-ws" marker-end="url(#aw2)"/><text x="450" y="212" text-anchor="middle" class="s-mono">welcome held:[web3] + 보관됐던 message</text>
+<!-- 2 발신 -->
+<text x="20" y="262" class="s-m">질문</text>
+<line x1="105" y1="282" x2="335" y2="282" class="s-io" marker-end="url(#ai2)"/><text x="220" y="276" text-anchor="middle" class="s-mono">team_send(to:선혁, "배포 언제?")</text>
+<line x1="335" y1="308" x2="565" y2="308" class="s-ws" marker-end="url(#aw2)"/><text x="450" y="302" text-anchor="middle" class="s-mono">send expect:reply</text>
+<line x1="565" y1="334" x2="795" y2="334" class="s-ws" marker-end="url(#aw2)"/><text x="680" y="328" text-anchor="middle" class="s-mono">message thread:t-1 (오프라인이면 보관)</text>
+<line x1="565" y1="360" x2="335" y2="360" class="s-ws" marker-end="url(#aw2)"/><text x="450" y="354" text-anchor="middle" class="s-mono">sent state:delivered thread:t-1</text>
+<rect x="590" y="376" width="200" height="22" rx="4" class="s-box"/><text x="690" y="391" text-anchor="middle" class="s-mono">서버: 15분 무응답 타이머 시작</text>
+<!-- 3 답장 -->
+<text x="20" y="432" class="s-m">답장</text>
+<line x1="795" y1="452" x2="565" y2="452" class="s-ws" marker-end="url(#aw2)"/><text x="680" y="446" text-anchor="middle" class="s-mono">reply thread:t-1 "내일 10시"</text>
+<line x1="565" y1="478" x2="335" y2="478" class="s-ws" marker-end="url(#aw2)"/><text x="450" y="472" text-anchor="middle" class="s-mono">message thread:t-1 from:선혁</text>
+<line x1="335" y1="504" x2="105" y2="504" class="s-io" marker-end="url(#ai2)"/><text x="220" y="498" text-anchor="middle" class="s-mono">&lt;channel from=선혁 thread=t-1&gt;</text>
+<rect x="470" y="516" width="190" height="22" rx="4" class="s-box"/><text x="565" y="531" text-anchor="middle" class="s-mono">서버: 타이머 해제, 기록 저장</text>
+</svg>
+</div>
+<p class="caption">선혁 세션이 꺼져 있으면 서버가 message 를 보관함에 넣고 <code>sent state:queued</code> 로 답합니다. 선혁이 접속하면 그때 배달됩니다. 72시간이 지나면 버리고 규영에게 <code>expired</code> 를 보냅니다.</p>
+
+<!-- 4 -->
+<h2 id="s4"><span class="num">4</span>소스코드 구조</h2>
+
+<pre><code>agent-relay/
+├── package.json          <span class="cm">npm start, npm test, npm run check. 의존성은 ws 하나</span>
+├── tsconfig.json         <span class="cm">타입 검사 전용. 빌드 없이 node 가 .ts 를 바로 실행한다</span>
+├── README.md             <span class="cm">실행법, 환경변수, 관리자 curl, 외부망 배포</span>
+├── state.db              <span class="cm">실행하면 생기는 저장 파일 (.gitignore)</span>
+├── server/
+│   ├── relay.ts          <span class="cm">서버 전부 (828줄). 아래 8구역</span>
+│   ├── frames.ts         <span class="cm">프레임 타입 정의만 (147줄). 런타임 코드 없음</span>
+│   ├── instructions.md   <span class="cm">welcome 으로 팀원 세션에 내려보내는 규약 본문</span>
+│   └── relay.test.ts     <span class="cm">실제 소켓으로 돌리는 테스트 3개 (327줄)</span>
+├── docs/
+│   └── wire-protocol.md  <span class="cm">플러그인 소스에서 뽑은 서버 계약. 서버가 지켜야 할 것</span>
+└── team-channel-plan.html <span class="cm">처음 계획서. 지금 구현과 다른 부분이 있다</span></code></pre>
+
+<h3>relay.ts 의 8구역</h3>
+<p>파일을 위에서 아래로 읽으면 됩니다. 구역마다 머리말 주석이 있고 함수마다 역할이 적혀 있습니다.</p>
+<div class="tbl"><table>
+<tr><th>구역</th><th>줄</th><th>내용</th></tr>
+<tr><td>1. 설정값</td><td>42</td><td>포트, 바인드 주소, 저장 경로, 기한과 상한 숫자. 전부 환경변수로 바꿀 수 있다</td></tr>
+<tr><td>2. 저장 상태</td><td>66</td><td>Member, Room, Invite, Thread, Queued, Agreement, Proposal 타입과 <code>state</code> 객체. sqlite 열기, <code>save()</code>, 규약 본문 읽기</td></tr>
+<tr><td>3. 접속 상태</td><td>146</td><td>지금 열린 소켓과 세션, 무응답 타이머, 상한 계산용 시각 목록. 메모리에만 있다</td></tr>
+<tr><td>4. 공용 도우미</td><td>165</td><td>보내기(<code>push</code>), 배달 또는 보관(<code>deliver</code>), 보관분 배달(<code>flush</code>), 기록(<code>record</code>), 무응답 타이머, 상대 찾기, 방 메모리 문장 만들기, 현황(<code>view</code>)</td></tr>
+<tr><td>5. 요청 처리</td><td>340</td><td><code>handle()</code> 하나. hello 와 join 을 먼저 처리하고, 인증과 상한을 검사한 뒤 type 별 switch. 서버 기능은 전부 여기 있다</td></tr>
+<tr><td>6. 주기 작업</td><td>704</td><td><code>sweep()</code>. 1분마다 보관 만료, 합의와 제안 만료, 초대코드 만료를 치운다</td></tr>
+<tr><td>7. 관리자 HTTP</td><td>736</td><td><code>/admin/invite</code>, <code>/admin/owner</code>, <code>/admin/revoke</code>. 토큰 헤더 검사 뒤 경로별 함수</td></tr>
+<tr><td>8. 서버 시작</td><td>793</td><td><code>start()</code>. 저장된 무응답 타이머 복원, HTTP 서버 위에 /ws 웹소켓, 끊긴 세션의 담당 90초 유지</td></tr>
+</table></div>
+
+<h3>frames.ts</h3>
+<p>플러그인이 보내는 요청 19개, 서버 응답, 서버 푸시 5개의 모양을 TypeScript 인터페이스로 적어 둔 파일입니다. 서버는 응답을 만들 때 이 타입으로 검사받습니다. 런타임 코드가 없어서 플러그인을 포크하게 되면 그쪽에서도 같은 파일을 import 해 양쪽이 같은 모양을 쓰는지 컴파일로 확인할 수 있습니다.</p>
+
+<h3>relay.test.ts</h3>
+<p>환경변수로 기한을 수백 ms 로 줄인 뒤 서버를 빈 포트에 띄우고, 플러그인 흉내 클라이언트가 실제 웹소켓으로 요청을 보냅니다. 외부 테스트 도구 없이 <code>node:test</code> 만 씁니다.</p>
+<ul>
+<li>1단계: 참가, 발신, 답장, 무응답 통지, 보관과 재접속 배달, 퇴근과 출근, 담당 이전</li>
+<li>2단계: 기록 조회(상대, 스레드, 이전 장), 합의 제안과 확정, 방 메모리 쓰기와 제안, 방장 초대와 공지와 제외, 발신 상한</li>
+<li>3단계: 관리자 방장 지정과 토큰 폐기, 그리고 답을 기다리는 스레드가 든 state.db 로 서버를 자식 프로세스로 띄워 재시작 뒤 무응답 통지가 오는지</li>
+</ul>
+
+<!-- 5 -->
+<h2 id="s5"><span class="num">5</span>설계</h2>
+
+<h3>용어</h3>
+<div class="tbl"><table>
+<tr><th>말</th><th>뜻</th></tr>
+<tr><td>멤버</td><td>토큰 하나로 식별되는 사람. 실제로는 그 사람의 PC 다. 여러 방에 속할 수 있다</td></tr>
+<tr><td>라벨</td><td>방 안에서 부르는 이름. 같은 사람이 방마다 다른 라벨을 가질 수 있다. 초대코드를 만들 때 정한다</td></tr>
+<tr><td>방</td><td>팀 단위. 메시지는 같은 방의 멤버끼리만 오간다. 방장이 있을 수도 없을 수도 있다</td></tr>
+<tr><td>세션</td><td>플러그인이 <code>gateway:true</code> 로 붙인 접속 하나. 한 사람이 Claude Code 를 여러 개 띄우면 세션도 여러 개다</td></tr>
+<tr><td>담당</td><td>한 멤버의 방 하나를 받는 세션은 하나뿐이다. 두 번째 세션은 시작만으로는 뺏지 못하고 <code>room</code> 요청으로 가져온다</td></tr>
+<tr><td>스레드</td><td><code>send</code> 하나가 여는 1:1 대화. 답장은 스레드 id 로 상대를 찾는다</td></tr>
+</table></div>
+
+<h3>저장되는 것</h3>
+<p>sqlite 파일 하나에 표가 둘입니다. <code>state</code> 표는 행이 하나뿐이고 그 json 칸에 아래 전부가 들어갑니다. 바뀔 때마다 100ms 묶음으로 통째로 다시 씁니다. 지금 규모에서는 몇 KB 라 이 방식으로 충분하고, 멤버가 수백 명이 되면 표를 나눕니다. <code>history</code> 표는 보낸 메시지마다 한 줄씩 쌓이고 상한이 없습니다.</p>
+<div class="tbl"><table>
+<tr><th>이름</th><th>필드</th><th>설명</th></tr>
+<tr><td>members</td><td>id, token, rooms{방: 라벨}, away</td><td>토큰이 신원이다. 폐기하면 통째로 지운다</td></tr>
+<tr><td>rooms</td><td>owner</td><td>방장 멤버 id. 없으면 메모리 제안이 <code>admin</code> 으로 간다</td></tr>
+<tr><td>invites</td><td>room, name, owner, expires</td><td>초대코드 1회용, 72시간. 코드가 키</td></tr>
+<tr><td>threads</td><td>id, room, a, b, awaiting, noackAt, notice</td><td>awaiting 은 지금 답해야 할 쪽, noackAt 은 무응답 통지 시각. notice 는 공지라 답장 불가</td></tr>
+<tr><td>queue</td><td>to, from, room, push, deadline, frozenAt</td><td>보관함. 상대가 퇴근 중이면 frozenAt 으로 기한을 멈춘다. 멤버당 50건</td></tr>
+<tr><td>agreements</td><td>id, room, a, b, summary, details, state, expires</td><td>합의. pending 이 72시간 지나면 expired</td></tr>
+<tr><td>memory</td><td>description, items[3], rev</td><td>방 메모리. rev 가 다르면 쓰기 거절</td></tr>
+<tr><td>proposals</td><td>id, room, from, text, expires</td><td>방 메모리 수정 제안. 방장이 처리한다</td></tr>
+<tr><td>history 표</td><td>ts, room, sender, receiver, text, thread</td><td>SQL 로 조회한다. 당사자만 볼 수 있고 라벨은 조회 때 붙인다</td></tr>
+</table></div>
+
+<h3>메모리에만 있는 것</h3>
+<p>열린 소켓과 세션, 어느 세션이 어느 방을 담당하는지, 무응답 타이머 객체, 최근 무응답 표시(30분), 상한 계산용 최근 1분 시각 목록입니다. 서버를 재시작하면 지워지지만 플러그인이 재접속하면서 세션과 담당은 다시 만들어지고, 무응답 타이머는 저장된 <code>noackAt</code> 으로 다시 걸립니다.</p>
+
+<h3>지켜지는 규칙</h3>
+<div class="tbl"><table>
+<tr><th>규칙</th><th>동작</th></tr>
+<tr><td>배달과 보관</td><td>상대가 그 방을 담당하는 세션이 있고 퇴근 중이 아니면 바로 보낸다. 아니면 보관하고 <code>queued</code> 로 답한다</td></tr>
+<tr><td>보관 기한</td><td>72시간. 퇴근 중에는 멈춘다. 지나면 버리고 보낸 사람에게 <code>expired</code></td></tr>
+<tr><td>무응답</td><td><code>expect:reply</code> 로 보낸 뒤 15분 안에 reply 도 ack 도 없으면 보낸 사람에게 <code>noack</code>. 그 상대는 30분 동안 "최근 무응답"으로 표시돼 다음 발신에 <code>note</code> 가 붙는다</td></tr>
+<tr><td>담당 이전</td><td>다른 세션이 <code>room</code> 으로 가져가면 전 세션에 <code>room_lost</code>. 세션이 끊겨도 90초는 담당을 유지해 재접속하면 그대로 돌려준다</td></tr>
+<tr><td>상한</td><td>발신(send, reply, agree_propose, memory_propose) 분당 30건, 공지 분당 3건, 그 외 분당 120건</td></tr>
+<tr><td>만료</td><td>초대코드, 합의 제안, 메모리 제안 모두 72시간. 1분마다 치우고 제안자에게 system 메시지</td></tr>
+<tr><td>방장</td><td>초대, 제외, 공지, 메모리 쓰기는 방장만. 방장은 초대코드의 <code>owner:true</code> 나 관리자 HTTP 로 정한다</td></tr>
+<tr><td>프로토콜 버전</td><td>플러그인이 보내는 v 가 5 미만이면 <code>plugin_outdated</code></td></tr>
+</table></div>
+
+<!-- 6 -->
+<h2 id="s6"><span class="num">6</span>서버가 받는 요청 전부</h2>
+
+<p>플러그인이 보내는 프레임 type 과 서버 응답입니다. 필드 하나하나는 <code>docs/wire-protocol.md</code> 와 <code>server/frames.ts</code> 에 있습니다.</p>
+<div class="tbl"><table>
+<tr><th>요청</th><th>응답</th><th>하는 일</th></tr>
+<tr><td>hello</td><td>welcome</td><td>토큰 인증. gateway:false 면 규약과 메모리만 주고, true 면 세션을 만들고 방을 담당시키며 보관분을 배달</td></tr>
+<tr><td>join</td><td>joined</td><td>초대코드로 참가. 토큰이 있으면 기존 신원에 방만 추가</td></tr>
+<tr><td>send</td><td>sent</td><td>새 스레드를 열어 상대에게 message 푸시. 상대가 나에게 물어 둔 스레드가 있으면 openThread 로 알림</td></tr>
+<tr><td>reply</td><td>sent</td><td>스레드로 답장. 무응답 타이머 해제</td></tr>
+<tr><td>ack</td><td>ack_ok</td><td>"처리 중" 알림. 무응답 타이머 해제</td></tr>
+<tr><td>away</td><td>away_ok</td><td>퇴근이면 수신을 보관하고 기한을 멈춤. 출근이면 보관분 배달</td></tr>
+<tr><td>room</td><td>room_ok</td><td>이 세션의 담당 방을 바꿈. 다른 세션 것은 뺏고 room_lost 를 보냄</td></tr>
+<tr><td>status</td><td>status</td><td>방, 담당, 접속 현황, 무응답과 퇴근 목록</td></tr>
+<tr><td>doctor</td><td>doctor</td><td>30초 하트비트. 플러그인 자가 진단도 이걸 읽음</td></tr>
+<tr><td>session_info</td><td>session_info_ok</td><td>세션 이름 알림. 응답만 함</td></tr>
+<tr><td>history</td><td>history</td><td>당사자 기록 조회. peer, room, thread, before, limit(1에서 100)</td></tr>
+<tr><td>agree_propose, agree_resolve, agree_list</td><td>agree_ok, agree_resolved, agrees</td><td>합의 제안, 확정과 거절, 목록. 확정되면 양쪽에 system 메시지</td></tr>
+<tr><td>memory_get, memory_set, memory_propose, memory_resolve</td><td>memory, memory_ok, memory_proposed, memory_resolved</td><td>방 메모리 조회, 방장 쓰기, 멤버 제안, 방장 처리. 바뀌면 그 방 세션 전부에 room_memory 푸시</td></tr>
+<tr><td>room_invite, room_kick, room_notice</td><td>room_invite_ok, room_kick_ok, room_notice_ok</td><td>방장 명령. 초대코드 발급, 멤버 제외, 전원 공지(kind:notice)</td></tr>
+</table></div>
+
+<h3>서버가 먼저 보내는 푸시</h3>
+<div class="tbl"><table>
+<tr><th>푸시</th><th>언제</th></tr>
+<tr><td>message</td><td>팀원 메시지, 합의 제안, 메모리 제안, 공지, 시스템 알림. kind 로 구분하고 플러그인이 channel 태그로 넣는다</td></tr>
+<tr><td>expired</td><td>보관 기한이 지나 버렸을 때 보낸 사람에게</td></tr>
+<tr><td>noack</td><td>상대가 15분 안에 답도 ack 도 안 했을 때 보낸 사람에게</td></tr>
+<tr><td>room_lost</td><td>다른 세션이 방 담당을 가져갔을 때</td></tr>
+<tr><td>room_memory</td><td>방 메모리가 바뀌었을 때 그 방의 모든 세션에</td></tr>
+<tr><td>error reason:replaced_by_new_gateway</td><td>같은 세션 id 로 새 소켓이 왔을 때 옛 소켓에. 플러그인은 재접속하지 않는다</td></tr>
+<tr><td>error reason:revoked</td><td>관리자가 토큰을 폐기했을 때. 플러그인은 알림을 띄우고 재접속을 멈춘다</td></tr>
+</table></div>
+
+<h3>관리자 HTTP</h3>
+<p>전부 POST 이고 JSON 본문과 <code>authorization: Bearer 토큰</code> 헤더가 필요합니다. <code>ADMIN_TOKEN</code> 이 비어 있으면 전부 401 입니다.</p>
+<div class="tbl"><table>
+<tr><th>경로</th><th>본문</th><th>하는 일</th></tr>
+<tr><td>/admin/invite</td><td>room, name, owner?</td><td>초대코드 발급. 방장이 없는 방의 첫 사람은 이걸로 들어온다</td></tr>
+<tr><td>/admin/owner</td><td>room, name</td><td>그 방의 방장을 그 라벨의 멤버로 바꾼다</td></tr>
+<tr><td>/admin/revoke</td><td>room, name</td><td>그 멤버를 모든 방에서 지우고 열린 세션에 revoked 를 보내 끊는다</td></tr>
+</table></div>
+
+<!-- 7 -->
+<h2 id="s7"><span class="num">7</span>배포 절차</h2>
+
+<p>역할이 둘입니다. 서버 관리자 한 사람이 서버를 올리고 초대코드를 나눠 주고, 팀원은 각자 플러그인을 설치해 참가합니다. 깃허브에 무엇을 올릴 필요는 없습니다. 플러그인은 배재원 저장소에서 설치되고 서버는 서버 컴퓨터에만 있으면 됩니다.</p>
+
+<h3>7.1 서버를 어디에 둘지 정한다</h3>
+<div class="tbl"><table>
+<tr><th>경우</th><th>조건</th><th>주소</th><th>필요한 것</th></tr>
+<tr><td>같은 사무실 LAN</td><td>팀원 PC 가 전부 같은 네트워크. 재택은 VPN 으로 들어온다</td><td><code>ws://서버IP:8765</code></td><td>서버 PC 에서 <code>RELAY_HOST=0.0.0.0</code>, 방화벽 8765 허용</td></tr>
+<tr><td>외부망</td><td>집이나 외부에서도 바로 붙는다</td><td><code>wss://relay.example.com</code></td><td>공개 IP 가 있는 서버, 도메인, Caddy</td></tr>
+</table></div>
+<div class="note"><strong class="lbl">평문 포트는 밖에 열지 않는다</strong>
+<p>토큰과 대화 내용이 지나가므로 외부망에서는 반드시 wss 입니다. relay.ts 는 기본으로 127.0.0.1 에만 묶여서 Caddy 를 거치지 않으면 밖에서 닿지 않습니다. LAN 에서 0.0.0.0 으로 여는 것은 사내망을 믿는다는 전제입니다.</p>
+</div>
+
+<h3>7.2 서버 컴퓨터 준비</h3>
+<ol class="steps">
+<li>Node 24 이상을 설치합니다. 이 서버는 Node 가 .ts 를 바로 실행하는 기능과 내장 sqlite 를 쓰므로 22 이하에서는 뜨지 않습니다. <code>node -v</code> 로 확인합니다.</li>
+<li>이 폴더를 서버 컴퓨터에 복사합니다. <code>node_modules</code> 와 <code>state.db</code> 는 빼고 복사합니다. 사내 깃허브에 비공개 저장소로 두고 <code>git clone</code> 하는 편이 나중에 고칠 때 편합니다.</li>
+<li>의존성을 설치하고 테스트를 한 번 돌립니다.
+<pre><code>cd agent-relay
+npm install
+npm test        <span class="cm"># pass 3 이면 된다</span></code></pre></li>
+<li>관리자 토큰을 만듭니다. 길고 무작위면 됩니다.
+<pre><code>openssl rand -hex 24</code></pre></li>
+</ol>
+
+<h3>7.3 실행</h3>
+<p>한 번 띄워 보는 명령입니다. 상시 실행은 7.4 에서 합니다.</p>
+<pre><code><span class="cm"># LAN 인 경우</span>
+RELAY_HOST=0.0.0.0 ADMIN_TOKEN=아까만든토큰 npm start
+
+<span class="cm"># 외부망인 경우 (Caddy 가 앞에 있으므로 기본 127.0.0.1 그대로)</span>
+ADMIN_TOKEN=아까만든토큰 npm start</code></pre>
+<p>뜨면 표준 오류에 한 줄이 나옵니다.</p>
+<pre><code>relay: ws://0.0.0.0:8765/ws (state /…/agent-relay/state.db)</code></pre>
+
+<h4>환경변수</h4>
+<div class="tbl"><table>
+<tr><th>이름</th><th>기본값</th><th>뜻</th></tr>
+<tr><td>PORT</td><td>8765</td><td>듣는 포트</td></tr>
+<tr><td>RELAY_HOST</td><td>127.0.0.1</td><td>바인드 주소. LAN 평문이면 0.0.0.0</td></tr>
+<tr><td>ADMIN_TOKEN</td><td>(없음)</td><td>관리자 HTTP 토큰. 없으면 관리자 기능 전부 거절</td></tr>
+<tr><td>RELAY_STATE</td><td>state.db</td><td>sqlite 파일 경로</td></tr>
+<tr><td>RELAY_INSTRUCTIONS</td><td>server/instructions.md</td><td>규약 본문 파일</td></tr>
+<tr><td>RELAY_QUEUE_TTL_MS, RELAY_NOACK_MS, RELAY_HOLD_GRACE_MS, RELAY_SEND_PER_MIN, RELAY_NOTICE_PER_MIN</td><td>72시간, 15분, 90초, 30, 3</td><td>기한과 상한. 테스트가 줄여 쓰고 운영에서는 손대지 않는다</td></tr>
+</table></div>
+
+<h3>7.4 상시 실행</h3>
+<p>Linux 서버면 systemd 유닛 하나로 부팅 때 뜨고 죽으면 다시 뜹니다. 토큰은 유닛 파일 대신 환경 파일에 두고 권한을 600 으로 합니다.</p>
+<pre><code><span class="cm"># /etc/agent-relay.env  (chmod 600)</span>
+ADMIN_TOKEN=아까만든토큰
+RELAY_HOST=127.0.0.1
+
+<span class="cm"># /etc/systemd/system/agent-relay.service</span>
+[Unit]
+Description=agent-relay
+After=network.target
+
+[Service]
+User=relay
+WorkingDirectory=/opt/agent-relay
+EnvironmentFile=/etc/agent-relay.env
+ExecStart=/usr/bin/node server/relay.ts
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+
+<span class="cm"># 적용</span>
+sudo systemctl daemon-reload
+sudo systemctl enable --now agent-relay
+journalctl -u agent-relay -f      <span class="cm"># 로그</span></code></pre>
+<p>macOS 에 둔다면 launchd 의 LaunchDaemon 으로 같은 일을 합니다. <code>ProgramArguments</code> 에 node 와 relay.ts 경로, <code>EnvironmentVariables</code> 에 토큰, <code>KeepAlive</code> 를 true 로 둡니다.</p>
+
+<h3>7.5 외부망이면 Caddy</h3>
+<p>Caddy 는 도메인만 적으면 인증서를 자동으로 받고 갱신합니다. 80 과 443 포트가 밖에서 닿아야 합니다.</p>
+<pre><code><span class="cm"># /etc/caddy/Caddyfile</span>
+relay.example.com {
+    reverse_proxy 127.0.0.1:8765
+}</code></pre>
+<p>이 설정이면 <code>/ws</code> 와 <code>/admin/*</code> 이 둘 다 같은 도메인으로 나갑니다. 관리자 경로는 토큰이 지키지만 토큰이 짧으면 위험하니 7.2 처럼 무작위로 만듭니다. 다른 프록시(nginx 등)를 쓴다면 웹소켓 업그레이드를 켜고 유휴 끊김 시간을 플러그인 하트비트 30초보다 길게 둡니다.</p>
+
+<h3>7.6 초대코드 발급</h3>
+<p>방 하나에 사람마다 코드를 하나씩 만듭니다. 첫 사람에게 <code>owner:true</code> 를 주면 그 사람이 방장이 되고, 그 뒤 사람들은 방장이 자기 세션 안에서 초대 명령으로 직접 코드를 만들어 줄 수도 있습니다.</p>
+<pre><code>curl -X POST -H "authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"room":"web3","name":"규영","owner":true}' https://relay.example.com/admin/invite
+<span class="cm"># {"code":"TR-3F2A-9C1B","room":"web3","name":"규영"}</span>
+
+curl -X POST -H "authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"room":"web3","name":"선혁"}' https://relay.example.com/admin/invite</code></pre>
+<p>코드는 1회용이고 72시간 뒤 사라집니다. 코드와 함께 서버 주소를 전달합니다. LAN 이면 curl 의 주소도 <code>http://서버IP:8765</code> 입니다.</p>
+
+<h3>7.7 팀원이 할 일</h3>
+<ol class="steps">
+<li>Claude Code 에 team-relay 플러그인 0.10.2 를 설치합니다. 지금까지 배재원 서버를 쓰던 사람은 이미 설치돼 있으니 건너뜁니다.</li>
+<li>Claude Code 세션에서 참가 명령에 서버 주소와 받은 코드를 줍니다. 주소는 스킴까지 적습니다. 플러그인은 스킴이 없으면 <code>ws://</code> 를 붙이므로 외부망에서 빠뜨리면 평문으로 붙으려다 실패합니다.
+<pre><code>/team-relay:join wss://relay.example.com TR-3F2A-9C1B
+<span class="cm"># LAN 이면</span>
+/team-relay:join ws://192.168.0.10:8765 TR-3F2A-9C1B</code></pre>
+참가하면 플러그인이 토큰을 자기 설정 파일에 저장합니다. 이 토큰이 그 사람의 신원이라 다른 PC 로 옮기지 않습니다.</li>
+<li>메시지를 받으려면 팀 세션으로 띄웁니다. 플러그인이 제공하는 <code>claude-team</code> 실행이 <code>TEAM_RELAY_GATEWAY=1</code> 을 켜 줍니다. 팀 세션이 아닌 세션은 보내기만 되고 받지 못합니다.</li>
+<li>세션 안에서 <code>team_doctor</code> 를 불러 연결과 설정을 확인합니다. 연결이 "연결됨" 이고 방에 자기 라벨이 보이면 끝입니다.</li>
+</ol>
+
+<h3>7.8 둘이서 확인</h3>
+<p>두 PC 에서 각각 팀 세션을 띄운 뒤 한쪽에서 상대 라벨로 질문을 보냅니다. 상대 세션 화면에 <code>channel</code> 알림이 뜨고, 답하면 보낸 쪽에 답이 돌아오면 됩니다. 한쪽을 끄고 보내면 <code>queued</code> 로 답이 오고, 다시 켜면 그때 배달되는 것까지 보면 보관함도 확인한 것입니다.</p>
+
+<!-- 8 -->
+<h2 id="s8"><span class="num">8</span>운영</h2>
+
+<h3>규약 본문 바꾸기</h3>
+<p><code>server/instructions.md</code> 를 고치면 끝입니다. 파일 수정 시각이 rev 가 되어 다음에 뜨는 세션부터 새 본문을 받고, 플러그인은 rev 가 바뀌면 캐시를 갱신합니다. 서버 재시작도 필요 없습니다.</p>
+
+<h3>방장 바꾸기와 사람 내보내기</h3>
+<pre><code>curl -X POST -H "authorization: Bearer $ADMIN_TOKEN" -d '{"room":"web3","name":"선혁"}' https://relay.example.com/admin/owner
+curl -X POST -H "authorization: Bearer $ADMIN_TOKEN" -d '{"room":"web3","name":"규영"}' https://relay.example.com/admin/revoke</code></pre>
+<p>폐기된 사람의 세션에는 "[팀 연결 종료] 관리자가 이 계정의 접속을 차단했습니다" 알림이 뜨고 재접속이 멈춥니다. 다시 쓰려면 새 초대코드로 참가합니다. 방 하나에서만 빼고 싶으면 방장이 세션 안에서 제외 명령을 씁니다.</p>
+
+<h3>백업</h3>
+<p><code>state.db</code> 와 같이 생기는 <code>state.db-wal</code>, <code>state.db-shm</code> 을 함께 복사하거나, 서버가 떠 있는 채로 아래를 돌립니다.</p>
+<pre><code>sqlite3 state.db ".backup /backup/state-$(date +%F).db"</code></pre>
+<p>토큰이 들어 있으니 백업 파일도 권한 600 으로 둡니다.</p>
+
+<h3>서버 코드를 고쳤을 때</h3>
+<ol class="steps">
+<li>고친 뒤 <code>npm run check</code> 와 <code>npm test</code> 를 돌립니다.</li>
+<li>서버 컴퓨터에서 코드를 받고 <code>systemctl restart agent-relay</code> 합니다. state.db 는 그대로 남습니다.</li>
+<li>재시작 동안 플러그인은 연결 실패를 보고 1초부터 두 배씩 늘려 30초까지 재접속을 시도합니다. 몇 초 안에 다시 붙고 담당도 돌아옵니다. 그 사이 온 메시지는 보낸 쪽이 실패 응답을 받으니 다시 보내면 됩니다.</li>
+</ol>
+
+<h3>플러그인이 새 버전이 되면</h3>
+<p>배재원이 플러그인을 올려 프로토콜 번호가 6 이 되면 플러그인이 보내는 필드와 읽는 필드가 바뀔 수 있습니다. 그때는 새 태그의 플러그인 소스에서 <code>docs/wire-protocol.md</code> 를 다시 뽑고 서버를 맞춥니다. 팀원이 자동 갱신을 받기 전에 서버를 먼저 맞추는 것이 순서입니다. 갱신을 미루고 싶으면 0.10.2 태그를 사내 깃허브에 포크해 두고 거기서 설치하게 하면 됩니다. 코드를 고치지 않는 단순 복사입니다.</p>
+
+<!-- 9 -->
+<h2 id="s9"><span class="num">9</span>검증한 것과 안 한 것</h2>
+
+<div class="tbl"><table>
+<tr><th>항목</th><th>어떻게</th><th>결과</th></tr>
+<tr><td>타입 검사</td><td><code>npm run check</code></td><td>오류 없음</td></tr>
+<tr><td>기능 전체</td><td><code>npm test</code>, 실제 소켓, 3단계</td><td>pass 3. 여섯 번 반복해도 같음</td></tr>
+<tr><td>실제 플러그인 (이 Mac 안)</td><td>Claude Code 에 team-relay 0.10.2 를 개발 채널로 붙이고 상대 팀원은 스크립트가 대신</td><td>참가, 질문과 channel 로 답 수신, 합의 제안과 확정 알림, 방 메모리 추가와 갱신 알림, 기록 조회가 됨</td></tr>
+<tr><td>토큰 폐기 (이 Mac 안)</td><td>세션을 띄운 채 관리자 HTTP 로 폐기</td><td>세션에 "[팀 연결 종료]" 알림, 이후 doctor 가 연결 실패로 표시</td></tr>
+<tr><td>두 PC 사이 연결</td><td>안 함</td><td>7.8 의 절차로 확인해야 함</td></tr>
+<tr><td>외부망 TLS</td><td>안 함</td><td>Caddy 설정은 적어 두었으나 실제 도메인으로 올리지 않음</td></tr>
+<tr><td>장기 운영</td><td>안 함</td><td>며칠 이상 떠 있을 때의 메모리나 파일 크기는 보지 않음</td></tr>
+</table></div>
+
+<!-- 10 -->
+<h2 id="s10"><span class="num">10</span>문제가 생겼을 때</h2>
+
+<div class="tbl"><table>
+<tr><th>보이는 것</th><th>원인</th><th>할 일</th></tr>
+<tr><td>team_doctor 에 "연결 실패"</td><td>서버가 안 떠 있거나 주소가 틀리거나 방화벽</td><td>서버 컴퓨터에서 <code>curl -i http://127.0.0.1:8765/admin/invite</code> 로 401 이 오는지 본다. 오면 서버는 살아 있고 경로 문제다</td></tr>
+<tr><td>auth_failed</td><td>토큰이 폐기됐거나 state.db 를 새로 만들어 멤버가 사라짐</td><td>새 초대코드로 다시 참가</td></tr>
+<tr><td>plugin_outdated</td><td>플러그인 프로토콜이 5 미만</td><td>플러그인을 0.10.2 이상으로 올린다</td></tr>
+<tr><td>메시지가 다른 세션에 감</td><td>같은 사람이 세션을 둘 띄웠고 먼저 뜬 쪽이 담당 중</td><td>받고 싶은 세션에서 <code>/team-relay:status</code> 를 실행하면 담당을 가져온다</td></tr>
+<tr><td>sent 가 queued 로 옴</td><td>상대 세션이 없거나 퇴근 중</td><td>정상. 상대가 접속하면 배달된다. 72시간 지나면 expired 가 온다</td></tr>
+<tr><td>rate_limited</td><td>분당 30건 넘게 보냄</td><td>1분 기다린다</td></tr>
+<tr><td>not_room_owner</td><td>방장이 아닌데 방장 명령을 씀</td><td>관리자가 <code>/admin/owner</code> 로 방장을 정한다</td></tr>
+<tr><td>서버가 Node 에서 안 뜸</td><td>Node 가 24 미만</td><td><code>node -v</code> 확인 뒤 올린다</td></tr>
+</table></div>
+
+<footer>이 문서는 2026-11-15 의 코드를 기준으로 썼습니다. 코드와 어긋나는 곳이 보이면 코드의 주석이 맞습니다.</footer>
+</main>
+</div>
+</body>
+</html>

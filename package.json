@@ -1,0 +1,19 @@
+{
+  "name": "agent-relay",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server/relay.ts",
+    "user": "node --env-file-if-exists=.env server/user.ts",
+    "test": "node --test --test-force-exit server/relay.test.ts server/web.test.ts plugin/plugin.test.ts",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/ws": "^8.18.1",
+    "typescript": "^5.9.0"
+  }
+}

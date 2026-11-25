@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>팀 채팅방</title>
+<style>
+:root {
+  --bg: #f4f5f7; --side: #ffffff; --side-line: #eceef1; --side-active: #f1f3f6;
+  --chat: #b2c7da; --bubble: #ffffff; --mine: #fee500; --text: #191919; --sub: #6b7684;
+  --pill: rgba(0,0,0,.18); --pill-text: #fff; --note: #4a5a6a;
+  --header: rgba(178,199,218,.92); --input: #ffffff; --hit: #ffef7a; --panel: #ffffff; --err: #d33;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121417; --side: #1a1d21; --side-line: #262a30; --side-active: #23272d;
+    --chat: #1f2a35; --bubble: #2c333b; --mine: #e8cf00; --text: #e9ecef; --sub: #9aa4af;
+    --pill: rgba(255,255,255,.12); --pill-text: #d5dbe1; --note: #aab6c2;
+    --header: rgba(31,42,53,.92); --input: #23272d; --hit: #8a7a00; --panel: #1a1d21; --err: #ff7b7b;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121417; --side: #1a1d21; --side-line: #262a30; --side-active: #23272d;
+  --chat: #1f2a35; --bubble: #2c333b; --mine: #e8cf00; --text: #e9ecef; --sub: #9aa4af;
+  --pill: rgba(255,255,255,.12); --pill-text: #d5dbe1; --note: #aab6c2;
+  --header: rgba(31,42,53,.92); --input: #23272d; --hit: #8a7a00; --panel: #1a1d21; --err: #ff7b7b;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg); color: var(--text);
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Malgun Gothic", sans-serif;
+  display: flex; overflow: hidden;
+}
+aside {
+  width: 320px; flex: none; background: var(--side); border-right: 1px solid var(--side-line);
+  display: flex; flex-direction: column;
+}
+aside h1 { font-size: 18px; margin: 0; padding: 20px 20px 12px; display: flex; justify-content: space-between; align-items: center; }
+aside h1 small { font-size: 12px; color: var(--sub); font-weight: 400; }
+#rooms { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; }
+#rooms li { display: flex; gap: 12px; align-items: center; padding: 12px 20px; cursor: pointer; }
+#rooms li:hover, #rooms li.on { background: var(--side-active); }
+#rooms li.pending { opacity: .55; cursor: default; }
+.room-ico {
+  width: 46px; height: 46px; border-radius: 17px; flex: none; display: grid; place-items: center;
+  font-weight: 700; color: #fff; font-size: 15px;
+}
+.room-txt { min-width: 0; flex: 1; }
+.room-top { display: flex; justify-content: space-between; gap: 8px; }
+.room-name { font-weight: 600; }
+.room-time { color: var(--sub); font-size: 12px; flex: none; }
+.room-last { color: var(--sub); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#rooms li.group { display: block; padding: 10px 20px 2px; font-size: 12px; color: var(--sub); cursor: default; background: none; }
+#rooms li.left { opacity: .7; }
+.audit li { display: block; white-space: normal; font-size: 12px; color: var(--sub); }
+.inline-form { display: inline-flex; gap: 4px; }
+.inline-form input { padding: 3px 6px; font-size: 12px; width: 130px; }
+.side-box { padding: 10px 20px; border-top: 1px solid var(--side-line); font-size: 13px; }
+.side-box form, .line-form { display: flex; gap: 6px; margin-top: 6px; }
+.line-form input { flex: 1; min-width: 0; }
+details summary { cursor: pointer; font-weight: 600; }
+details ul { list-style: none; margin: 6px 0 0; padding: 0; }
+details li { display: flex; gap: 6px; align-items: center; padding: 3px 0; flex-wrap: wrap; }
+details li span { flex: 1 1 120px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+details li button, details li select { flex: none; white-space: nowrap; }
+details li ul { flex-basis: 100%; margin: 0 0 4px 12px; border-left: 2px solid var(--side-line); padding-left: 8px; }
+main { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--chat); }
+header {
+  display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+  background: var(--header); backdrop-filter: blur(6px);
+}
+header h2 { margin: 0; font-size: 16px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+header h2 small { color: var(--sub); font-weight: 400; margin-left: 6px; }
+#back { display: none; }
+button, input, select {
+  font: inherit; color: var(--text); background: var(--input); border: 0; border-radius: 8px;
+}
+button { padding: 6px 10px; cursor: pointer; }
+button.small { font-size: 12px; padding: 3px 8px; background: var(--side-active); }
+input, select { padding: 7px 10px; }
+#q { width: 160px; }
+#panel { background: var(--panel); border-bottom: 1px solid var(--side-line); padding: 8px 16px; font-size: 13px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: flex-start; }
+#panel:empty { display: none; }
+#panel details { max-width: 360px; }
+.code { font-family: ui-monospace, Menlo, monospace; background: var(--input); padding: 2px 6px; border-radius: 6px; user-select: all; }
+.msg { color: var(--sub); }
+.msg.err { color: var(--err); }
+#chat { flex: 1; overflow-y: auto; padding: 8px 16px 24px; }
+.day { text-align: center; margin: 18px 0 10px; }
+.day span, .notice span, .sys span {
+  display: inline-block; background: var(--pill); color: var(--pill-text);
+  font-size: 12px; padding: 3px 12px; border-radius: 12px;
+}
+.notice, .sys { text-align: center; margin: 10px auto; max-width: 80%; }
+.notice span { white-space: pre-wrap; text-align: left; border-radius: 10px; padding: 8px 12px; }
+.row { display: flex; gap: 8px; margin-top: 4px; align-items: flex-start; }
+.row.first { margin-top: 12px; }
+.row.mine { flex-direction: row-reverse; }
+.avatar {
+  width: 40px; height: 40px; border-radius: 15px; flex: none; display: grid; place-items: center;
+  color: #fff; font-weight: 700; font-size: 14px;
+}
+.row:not(.first) .avatar { visibility: hidden; height: 0; }
+.row.mine .avatar { display: none; }
+.body { max-width: min(560px, 72%); display: flex; flex-direction: column; }
+.row.mine .body { align-items: flex-end; }
+.name { font-size: 13px; margin: 0 0 4px 2px; }
+.row.mine .name, .row:not(.first) .name { display: none; }
+.line { display: flex; align-items: flex-end; gap: 6px; }
+.row.mine .line { flex-direction: row-reverse; }
+.bubble {
+  background: var(--bubble); padding: 8px 11px; border-radius: 14px; white-space: pre-wrap;
+  word-break: break-word; position: relative; box-shadow: 0 1px 1px rgba(0,0,0,.04);
+}
+.row.mine .bubble { background: var(--mine); color: #191919; }
+.row.first .bubble { border-top-left-radius: 4px; }
+.row.mine.first .bubble { border-top-left-radius: 14px; border-top-right-radius: 4px; }
+.bubble.clip { max-height: 260px; overflow: hidden; }
+.bubble.clip::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 48px;
+  background: linear-gradient(transparent, var(--bubble)); border-radius: 0 0 14px 14px;
+}
+.row.mine .bubble.clip::after { background: linear-gradient(transparent, var(--mine)); }
+.more { font-size: 12px; color: var(--sub); background: none; padding: 2px 4px; align-self: flex-start; }
+.row.mine .more { align-self: flex-end; }
+.meta { font-size: 11px; color: var(--sub); flex: none; display: flex; flex-direction: column; line-height: 1.3; }
+.row.mine .meta { align-items: flex-end; }
+.tag { font-size: 11px; color: var(--note); margin: 3px 2px 0; }
+.tag button { font-size: 11px; padding: 0 4px; background: none; color: inherit; text-decoration: underline; }
+mark { background: var(--hit); color: inherit; border-radius: 2px; }
+.empty { text-align: center; color: var(--sub); margin-top: 40vh; }
+#thread-bar { display: none; align-items: center; gap: 8px; padding: 6px 16px; font-size: 13px; background: var(--header); }
+#thread-bar.on { display: flex; }
+#gate { position: fixed; inset: 0; z-index: 10; background: var(--bg); display: none; place-items: center; }
+#gate.on { display: grid; }
+#gate form { background: var(--side); padding: 28px; border-radius: 16px; display: flex; flex-direction: column; gap: 10px; width: 300px; }
+#gate h1 { margin: 0 0 8px; font-size: 18px; }
+#gate input { border: 1px solid var(--side-line); }
+#gate button[type=submit] { background: var(--mine); color: #191919; font-weight: 600; }
+#gate .switch { background: none; color: var(--sub); font-size: 13px; }
+#gate .msg { min-height: 1.2em; font-size: 13px; }
+@media (max-width: 720px) {
+  aside { width: 100%; }
+  main { display: none; }
+  body.open aside { display: none; }
+  body.open main { display: flex; }
+  #back { display: inline-block; }
+  #q { width: 100px; }
+  .body { max-width: 78%; }
+}
+</style>
+</head>
+<body>
+<div id="gate">
+  <form id="login-form">
+    <h1>팀 채팅방</h1>
+    <input name="user" type="email" placeholder="이메일" autocomplete="username" required>
+    <input name="pass" type="password" placeholder="비밀번호" autocomplete="current-password" required>
+    <button type="submit">로그인</button>
+    <div class="msg" id="login-msg"></div>
+    <button type="button" class="switch" id="to-signup">계정이 없으면 가입 신청</button>
+  </form>
+  <form id="signup-form" hidden>
+    <h1>가입 신청</h1>
+    <input name="login" type="email" placeholder="이메일" autocomplete="username" required>
+    <input name="pass" type="password" placeholder="비밀번호 (8자 이상)" autocomplete="new-password" minlength="8" required>
+    <input name="name" placeholder="이름 (채팅에 보이는 이름)" required>
+    <button type="submit">신청</button>
+    <div class="msg" id="signup-msg"></div>
+    <button type="button" class="switch" id="to-login">로그인으로</button>
+  </form>
+  <form id="must-form" hidden>
+    <h1>비밀번호 변경</h1>
+    <div class="msg">임시 비밀번호로 로그인했습니다. 새 비밀번호를 정해야 계속 쓸 수 있습니다.</div>
+    <input name="current" type="password" placeholder="임시 비밀번호" autocomplete="current-password" required>
+    <input name="next" type="password" placeholder="새 비밀번호 (8자 이상)" autocomplete="new-password" minlength="8" required>
+    <button type="submit">바꾸기</button>
+    <div class="msg" id="must-msg"></div>
+  </form>
+</div>
+<aside>
+  <h1>채팅 <small id="who"></small></h1>
+  <ul id="rooms"></ul>
+  <div class="side-box">
+    <form id="join-form" class="line-form"><input name="code" placeholder="방 코드 (RM-XXXX-XXXX)" required><button>참가 신청</button></form>
+    <form id="create-form" class="line-form" hidden><input name="name" placeholder="새 방 이름" maxlength="40" required><button>방 만들기</button></form>
+    <div class="msg" id="side-msg"></div>
+  </div>
+  <div class="side-box" id="admin-box" hidden></div>
+  <div class="side-box">
+    <details><summary>비밀번호 변경</summary>
+      <form id="pass-form" class="line-form" style="flex-wrap:wrap">
+        <input name="current" type="password" placeholder="현재 비밀번호" autocomplete="current-password" required>
+        <input name="next" type="password" placeholder="새 비밀번호 (8자 이상)" autocomplete="new-password" minlength="8" required>
+        <button>바꾸기</button>
+      </form>
+      <div class="msg" id="pass-msg"></div>
+    </details>
+  </div>
+  <div class="side-box" style="display:flex;justify-content:space-between;align-items:center">
+    <button id="theme">테마</button><button id="logout">로그아웃</button>
+  </div>
+</aside>
+<main>
+  <header>
+    <button id="back" aria-label="방 목록">‹</button>
+    <h2 id="title"></h2>
+    <input id="q" type="search" placeholder="검색" aria-label="이 방에서 검색">
+  </header>
+  <div id="panel"></div>
+  <div id="thread-bar"><span id="thread-label"></span><button id="thread-clear">전체 보기</button></div>
+  <div id="chat"></div>
+</main>
+<script>
+const PALETTE = ['#f28b82','#7baaf7','#81c995','#f6b26b','#c58af9','#4ecde6','#ff8bcb','#a1887f'];
+const color = s => PALETTE[[...s].reduce((a, c) => a + c.codePointAt(0), 0) % PALETTE.length];
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2, '0');
+const WEEK = '일월화수목금토';
+const kst = ts => new Date(ts + 9 * 3600e3);
+const dayKey = ts => kst(ts).toISOString().slice(0, 10);
+const dayLabel = ts => { const d = kst(ts); return `${d.getUTCFullYear()}년 ${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일 ${WEEK[d.getUTCDay()]}요일`; };
+const hm = ts => { const d = kst(ts); const h = d.getUTCHours(); return `${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${pad(d.getUTCMinutes())}`; };
+const shortTime = ts => dayKey(ts) === dayKey(Date.now()) ? hm(ts) : `${kst(ts).getUTCMonth() + 1}월 ${kst(ts).getUTCDate()}일`;
+const ROLE_KO = { system_admin: '슈퍼관리자', admin: '관리자', member: '멤버' };
+
+let D = null, byRoom = {}, thread = null, lastJson = '';
+let current = decodeURIComponent(location.hash.slice(1)) || store.get('room');
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+function btn(text, fn, cls = 'small') { const b = el('button', cls, text); b.onclick = fn; return b; }
+
+async function post(path, body) {
+  const r = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}) });
+  const j = await r.json().catch(() => ({}));
+  return { ok: r.ok, status: r.status, ...j };
+}
+const ERR = {
+  unknown_code: '그 코드의 방이 없습니다', already_joined: '이미 참가 중입니다', already_pending: '이미 신청했습니다',
+  room_exists: '같은 이름의 방이 있습니다', forbidden: '권한이 없습니다', not_room_owner: '방장만 할 수 있습니다',
+  login_taken: '이미 가입된 이메일입니다', unauthorized: '이메일이나 비밀번호가 틀립니다', pending: '관리자 승인을 기다리는 계정입니다',
+  locked: '시도가 너무 많습니다. 10분 뒤에 다시 하세요', disabled: '비활성화된 계정입니다', weak_pass: '비밀번호는 8자 이상이어야 합니다',
+  wrong_pass: '현재 비밀번호가 틀립니다', must_change_pass: '먼저 비밀번호를 바꾸세요', csrf: '다른 사이트에서 온 요청은 받지 않습니다',
+  too_many: '시도가 너무 많습니다', label_taken: '이 방에서 다른 사람이 쓰는 이름입니다', archived: '보관된 방입니다',
+  not_joined: '참가 중인 방이 아닙니다', self: '자기 자신에게는 할 수 없습니다', unknown_member: '그 플러그인 멤버가 없습니다', not_in_room: '방에 없는 멤버입니다',
+};
+const ACTION_KO = {
+  signup: '가입 신청', login: '로그인', login_fail: '로그인 실패', password_change: '비밀번호 변경', user_approve: '가입 승인', user_reject: '가입 거절',
+  user_role: '역할 변경', user_disable: '계정 비활성화', user_enable: '계정 복구', user_temp_password: '임시 비밀번호 지정',
+  room_create: '방 생성', room_approve: '참가 승인', room_reject: '참가 거절', room_remove: '계정 내보내기', room_owner: '방장 지정',
+  room_recode: '방 코드 재발급', room_archive: '방 보관', room_unarchive: '방 복원', member_kick: '플러그인 멤버 내보내기', member_revoke: '토큰 폐기',
+};
+const fullTime = ts => { const d = kst(ts); return `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`; };
+const errText = r => r.detail || ERR[r.error] || `실패 (${r.error || r.status})`;
+
+function highlight(node, text, q) {
+  if (!q) { node.textContent = text; return; }
+  const lower = text.toLowerCase(), ql = q.toLowerCase();
+  let i = 0, j;
+  while ((j = lower.indexOf(ql, i)) !== -1) {
+    node.append(text.slice(i, j), el('mark', null, text.slice(j, j + q.length)));
+    i = j + q.length;
+  }
+  node.append(text.slice(i));
+}
+
+function renderSide() {
+  const me = D.me;
+  $('who').textContent = `${me.name} (${me.roles.map(r => ROLE_KO[r] || r).join(', ')})`;
+  $('create-form').hidden = !me.roles.some(r => r === 'admin' || r === 'system_admin');
+  const ul = $('rooms');
+  ul.replaceChildren();
+  const rooms = [...D.rooms].sort((a, b) => (byRoom[b.name]?.at(-1)?.ts ?? 0) - (byRoom[a.name]?.at(-1)?.ts ?? 0));
+  // 참가 중인 방, 나간 방, (슈퍼관리자) 보관된 방 순서로 묶는다
+  const groupOf = r => r.archived ? 2 : r.status === 'left' ? 1 : 0;
+  const GROUP = ['', '나간 방', '보관된 방'];
+  let group = -1;
+  for (const r of rooms.sort((a, b) => groupOf(a) - groupOf(b))) {
+    if (groupOf(r) !== group) { group = groupOf(r); if (GROUP[group]) ul.append(el('li', 'group', GROUP[group])); }
+    const last = byRoom[r.name]?.at(-1);
+    const li = el('li', (r.name === current ? 'on' : '') + (r.status === 'pending' ? ' pending' : '') + (r.status === 'left' || r.archived ? ' left' : ''));
+    const ico = el('div', 'room-ico', r.name.slice(0, 2).toUpperCase());
+    ico.style.background = color(r.name);
+    const txt = el('div', 'room-txt');
+    const top = el('div', 'room-top');
+    top.append(el('span', 'room-name', r.name), el('span', 'room-time', last ? shortTime(last.ts) : ''));
+    const sub = r.status === 'pending' ? '승인 대기 중' : last ? `${last.from ? last.from + ': ' : ''}${last.text.split('\n')[0]}` : (r.status ? '메시지 없음' : '참가하지 않은 방');
+    txt.append(top, el('div', 'room-last', sub));
+    li.append(ico, txt);
+    if (r.status !== 'pending') li.onclick = () => { current = r.name; thread = null; store.set('room', r.name); $('q').value = ''; document.body.classList.add('open'); render(); };
+    ul.append(li);
+  }
+  // 관리자: 가입 대기. 슈퍼관리자: 계정 역할
+  const box = $('admin-box');
+  box.replaceChildren();
+  box.hidden = !D.pendingUsers.length && !D.users.length && !me.members.length && !D.audit.length;
+  // 내 플러그인 멤버. 슈퍼관리자가 아니어도 자기 것은 폐기할 수 있다
+  if (me.members.length) { const d = el('details'); d.append(el('summary', null, `내 플러그인 ${me.members.length}개`), memberUl(me.members, true)); box.append(d); }
+  if (D.pendingUsers.length) {
+    const d = el('details'); d.open = true;
+    d.append(el('summary', null, `가입 신청 ${D.pendingUsers.length}건`));
+    const l = el('ul');
+    for (const u of D.pendingUsers) {
+      const li = el('li'); li.append(el('span', null, `${u.name} (${u.login})`),
+        btn('승인', () => act(`/users/${u.id}/approve`)), btn('거절', () => act(`/users/${u.id}/reject`)));
+      l.append(li);
+    }
+    d.append(l); box.append(d);
+  }
+  if (D.users.length) {
+    const d = el('details');
+    d.append(el('summary', null, `계정 ${D.users.length}개`));
+    const l = el('ul');
+    const superMe = me.roles.includes('system_admin');
+    for (const u of D.users) {
+      const li = el('li'); li.append(el('span', null, `${u.name} (${u.login})${u.disabled ? ' 비활성화' : ''}`));
+      if (superMe) {
+        const sel = el('select');
+        for (const r of ['system_admin', 'admin', 'member']) { const o = el('option', null, ROLE_KO[r]); o.value = r; o.selected = u.roles.includes(r); sel.append(o); }
+        sel.disabled = u.id === me.id;
+        sel.onchange = () => act(`/users/${u.id}/role`, { role: sel.value });
+        li.append(sel);
+      } else li.append(el('span', null, u.roles.map(r => ROLE_KO[r] || r).join(', ')));
+      if (u.id !== me.id && (superMe || !u.roles.includes('system_admin'))) {
+        li.append(u.disabled
+          ? btn('복구', () => act(`/users/${u.id}/enable`))
+          : btn('비활성화', () => confirmAct(`${u.name} 계정을 비활성화할까요? 로그인이 막히고 플러그인 토큰이 모두 폐기됩니다.`, `/users/${u.id}/disable`)));
+        if (superMe) li.append(btn('임시 비밀번호', () => {
+          if (li.querySelector('form')) return;
+          const f = el('form', 'inline-form'); const inp = el('input'); inp.type = 'password'; inp.placeholder = '임시 비밀번호 (8자 이상)'; inp.minLength = 8; inp.required = true;
+          f.append(inp, btn('지정', null)); f.onsubmit = ev => { ev.preventDefault(); act(`/users/${u.id}/password`, { next: inp.value }); };
+          li.append(f);
+        }));
+      }
+      if (u.members.length) li.append(memberUl(u.members, superMe));
+      l.append(li);
+    }
+    d.append(l); box.append(d);
+  }
+  if (D.audit.length) {
+    const d = el('details', 'audit');
+    d.append(el('summary', null, `관리 이력 ${D.audit.length}건`));
+    const l = el('ul');
+    for (const a of D.audit) {
+      const detail = Object.entries(a.detail).map(([k, v]) => `${k}=${typeof v === 'object' ? JSON.stringify(v) : v}`).join(' ');
+      l.append(el('li', null, `${fullTime(a.ts)} ${a.actor || '(없음)'} ${ACTION_KO[a.action] || a.action} ${a.target}${detail ? ' ' + detail : ''}`));
+    }
+    d.append(l); box.append(d);
+  }
+}
+
+/** 플러그인 멤버 목록. 이름, 들어간 방, 접속 여부와 토큰 폐기 단추 */
+function memberUl(members, canRevoke) {
+  const ul = el('ul');
+  for (const m of members) {
+    const li = el('li');
+    li.append(el('span', null, `${m.label}${m.online ? ' (접속 중)' : ''}: ${m.rooms.join(', ') || '방 없음'}`));
+    if (canRevoke) li.append(btn('토큰 폐기', () => confirmAct(`${m.label} 의 토큰을 폐기할까요? 모든 방에서 빠지고 그 세션은 끊깁니다. 다시 쓰려면 새 참가 코드가 필요합니다.`, `/members/${m.id}/revoke`)));
+    ul.append(li);
+  }
+  return ul;
+}
+
+function renderPanel(r) {
+  const p = $('panel');
+  p.replaceChildren();
+  if (!r) return;
+  const info = el('div');
+  info.append(`방장: ${r.owner || '없음'}`);
+  if (r.archived) info.append(' (보관된 방)');
+  if (r.code && !r.archived) { info.append(', 방 코드 '); info.append(el('span', 'code', r.code), ' ', btn('재발급', () => confirmAct('방 코드를 새로 만들까요? 이전 코드는 바로 못 씁니다.', `/rooms/${encodeURIComponent(r.name)}/recode`))); }
+  if (r.status === 'left') info.append(el('div', 'msg', `나간 방입니다. 참가했던 구간: ${r.intervals.map(w => `${fullTime(w.joined_at)} 부터 ${w.left_at ? fullTime(w.left_at) : '지금'} 까지`).join(', ')}. 다시 들어오려면 방 코드로 신청하세요.`));
+  p.append(info);
+  const members = el('details');
+  members.append(el('summary', null, `멤버 ${r.members.filter(m => m.status === 'joined').length}명${r.pluginMembers.length ? `, 플러그인 ${r.pluginMembers.map(m => m.name).join(', ')}` : ''}`));
+  const l = el('ul');
+  for (const m of r.members) {
+    const li = el('li'); li.append(el('span', null, `${m.name}${m.status === 'pending' ? ' (참가 신청)' : ''}`));
+    if (r.isOwner && m.status === 'pending') li.append(btn('승인', () => act(`/rooms/${encodeURIComponent(r.name)}/approve`, { user: m.id })), btn('거절', () => act(`/rooms/${encodeURIComponent(r.name)}/reject`, { user: m.id })));
+    if (r.isOwner && m.status === 'joined' && m.name !== r.owner) li.append(
+      btn('방장 지정', () => confirmAct(`${m.name} 님을 방장으로 지정할까요?`, `/rooms/${encodeURIComponent(r.name)}/owner`, { user: m.id })),
+      btn('내보내기', () => confirmAct(`${m.name} 님을 방에서 내보낼까요? 기록은 남고 다시 들어오려면 방장 승인이 필요합니다.`, `/rooms/${encodeURIComponent(r.name)}/remove`, { user: m.id })));
+    l.append(li);
+  }
+  members.append(l);
+  if (r.pluginMembers.length) { // 플러그인 멤버. 방장은 하나씩 내보낼 수 있다
+    const pl = el('ul');
+    for (const m of r.pluginMembers) {
+      const li = el('li'); li.append(el('span', null, `플러그인 ${m.name}${m.user ? ` (${m.user})` : ''}`));
+      if (r.isOwner) li.append(btn('내보내기', () => confirmAct(`플러그인 ${m.name} 을 이 방에서 내보낼까요? 계정의 방 참가는 그대로고 플러그인에서만 빠집니다.`, `/rooms/${encodeURIComponent(r.name)}/kick`, { member: m.id })));
+      pl.append(li);
+    }
+    members.append(pl);
+  }
+  p.append(members);
+  const pend = r.members.filter(m => m.status === 'pending').length;
+  if (r.isOwner && pend) members.open = true;
+  const acts = el('div');
+  if (r.archived) {
+    if (D.me.roles.includes('system_admin')) acts.append(btn('복원', () => confirmAct('방을 복원할까요? 멤버는 다시 참가 신청해야 합니다.', `/rooms/${encodeURIComponent(r.name)}/unarchive`)));
+    p.append(acts); return;
+  }
+  if (r.status === 'joined' || D.me.roles.includes('system_admin')) {
+    const label = el('input'); label.placeholder = `플러그인 이름 (비우면 ${D.me.name})`; label.maxLength = 40; label.title = '세션마다 다른 이름을 적으면 같은 계정의 세션끼리도 대화할 수 있습니다';
+    acts.append(label, ' ');
+    acts.append(btn('플러그인 참가 코드', async () => {
+      const res = await post(`/rooms/${encodeURIComponent(r.name)}/code`, { label: label.value });
+      const out = $('code-out');
+      out.replaceChildren();
+      if (res.ok) { out.append('Claude Code 에서 /team-relay:join 할 때 입력: ', el('span', 'code', res.code), ' (1회용, 72시간)'); }
+      else out.append(el('span', 'msg err', errText(res)));
+      if (res.ok && r.status !== 'joined') load(true);
+    }));
+  }
+  if (r.status === 'joined') acts.append(' ', btn('나가기', () => confirmAct(`${r.name} 방에서 나갈까요? 기록은 남고 다시 들어오려면 방장 승인이 필요합니다.`, `/rooms/${encodeURIComponent(r.name)}/leave`)));
+  if (r.isOwner) acts.append(' ', btn('방 보관', () => confirmAct(`${r.name} 방을 보관할까요? 모든 멤버가 나가지고 기록은 슈퍼관리자만 봅니다.`, `/rooms/${encodeURIComponent(r.name)}/archive`)));
+  const out = el('div'); out.id = 'code-out'; acts.append(out);
+  p.append(acts);
+}
+
+function render() {
+  renderSide();
+  const r = D.rooms.find(x => x.name === current);
+  renderPanel(r);
+  const q = $('q').value.trim();
+  const all = byRoom[current] || [];
+  $('title').replaceChildren(current || '', el('small', null, current ? `메시지 ${all.length}건` : ''));
+  $('thread-bar').classList.toggle('on', !!thread);
+  $('thread-label').textContent = thread ? `스레드 ${thread}만 보는 중` : '';
+  const list = all.filter(m => (!thread || m.thread === thread) && (!q || m.text.toLowerCase().includes(q.toLowerCase())));
+  const chat = $('chat');
+  const atBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 40;
+  chat.replaceChildren();
+  if (!list.length) { chat.append(el('div', 'empty', q ? '검색 결과가 없습니다' : current ? '메시지가 없습니다' : '방을 고르세요')); return; }
+  const MINE = new Set(D.me.labels[current] || [D.me.name]);
+  let prevDay = null, prev = null;
+  list.forEach((m, i) => {
+    const d = dayKey(m.ts);
+    if (d !== prevDay) { const div = el('div', 'day'); div.append(el('span', null, dayLabel(m.ts))); chat.append(div); prevDay = d; prev = null; }
+    if (!m.from && m.kind !== 'notice') {
+      const n = el('div', 'sys'); n.append(el('span', null, `${m.text} (${hm(m.ts)})`)); chat.append(n); prev = null; return;
+    }
+    if (m.kind === 'notice') {
+      const n = el('div', 'notice'); const s = el('span');
+      highlight(s, `공지 (${m.from})\n${m.text}`, q);
+      n.append(s); chat.append(n); prev = null; return;
+    }
+    const next = list[i + 1];
+    const nextIsBubble = next && next.from && next.kind !== 'notice';
+    const sameAsPrev = prev && prev.from === m.from && m.ts - prev.ts < 60e3 && hm(prev.ts) === hm(m.ts);
+    const lastOfGroup = !(nextIsBubble && next.from === m.from && dayKey(next.ts) === d && hm(next.ts) === hm(m.ts));
+    const mine = MINE.has(m.from);
+    const row = el('div', `row${mine ? ' mine' : ''}${sameAsPrev ? '' : ' first'}`);
+    const av = el('div', 'avatar', m.from.slice(-2));
+    av.style.background = color(m.from);
+    const body = el('div', 'body');
+    body.append(el('div', 'name', m.from));
+    const line = el('div', 'line');
+    const bubble = el('div', 'bubble');
+    highlight(bubble, m.text, q);
+    const meta = el('div', 'meta');
+    if (m.expect === 'reply') meta.append(el('span', null, '답장 요청'));
+    if (m.kind === 'agree_propose') meta.append(el('span', null, '합의 제안'));
+    if (lastOfGroup) meta.append(el('span', null, hm(m.ts)));
+    line.append(bubble, meta);
+    body.append(line);
+    if (m.text.length > 600 || m.text.split('\n').length > 14) {
+      bubble.classList.add('clip');
+      const more = el('button', 'more', '전체 보기');
+      more.onclick = () => { const c = bubble.classList.toggle('clip'); more.textContent = c ? '전체 보기' : '접기'; };
+      body.append(more);
+    }
+    const tag = el('div', 'tag');
+    if (m.to) tag.append(`${m.to} 에게 `);
+    if (m.thread) {
+      const t = el('button', null, m.thread);
+      t.title = '이 스레드만 보기';
+      t.onclick = () => { thread = m.thread; render(); };
+      tag.append(t);
+    }
+    body.append(tag);
+    row.append(av, body);
+    chat.append(row);
+    prev = m;
+  });
+  chat.scrollTop = q || thread ? 0 : (atBottom || !prev ? chat.scrollHeight : chat.scrollTop);
+}
+
+async function load(force) {
+  const r = await fetch('/chat/data');
+  if (r.status === 401) { $('gate').classList.add('on'); return; }
+  $('gate').classList.remove('on');
+  const text = await r.text();
+  if (!force && text === lastJson) return;
+  lastJson = text;
+  D = JSON.parse(text);
+  if (D.me.mustChangePass) { $('gate').classList.add('on'); $('login-form').hidden = true; $('signup-form').hidden = true; $('must-form').hidden = false; return; }
+  $('must-form').hidden = true; $('login-form').hidden = false;
+  byRoom = {};
+  for (const m of D.messages) (byRoom[m.room] ||= []).push(m);
+  if (!D.rooms.some(x => x.name === current && x.status !== 'pending')) current = D.rooms.find(x => x.status !== 'pending' && x.status !== 'left' && !x.archived)?.name || '';
+  render();
+}
+
+async function act(path, body) {
+  const res = await post(path, body);
+  $('side-msg').className = 'msg' + (res.ok ? '' : ' err');
+  $('side-msg').textContent = res.ok ? '' : errText(res);
+  load(true);
+  return res;
+}
+function confirmAct(q, path, body) { if (window.confirm(q)) act(path, body); }
+
+$('login-form').onsubmit = async ev => {
+  ev.preventDefault();
+  const f = new FormData(ev.target);
+  const res = await post('/login', { user: f.get('user'), pass: f.get('pass') });
+  $('login-msg').className = 'msg' + (res.ok ? '' : ' err');
+  $('login-msg').textContent = res.ok ? '' : errText(res);
+  if (res.ok) { ev.target.reset(); load(true); }
+};
+async function changePass(form, msgId) {
+  const f = new FormData(form);
+  const res = await post('/me/password', { current: f.get('current'), next: f.get('next') });
+  $(msgId).className = 'msg' + (res.ok ? '' : ' err');
+  $(msgId).textContent = res.ok ? '바꿨습니다. 다시 로그인하세요' : errText(res);
+  if (res.ok) { form.reset(); lastJson = ''; D = null; load(true); }
+}
+$('must-form').onsubmit = ev => { ev.preventDefault(); changePass(ev.target, 'must-msg'); };
+$('pass-form').onsubmit = ev => { ev.preventDefault(); changePass(ev.target, 'pass-msg'); };
+$('signup-form').onsubmit = async ev => {
+  ev.preventDefault();
+  const f = new FormData(ev.target);
+  const res = await post('/signup', { login: f.get('login'), pass: f.get('pass'), name: f.get('name') });
+  $('signup-msg').className = 'msg' + (res.ok ? '' : ' err');
+  $('signup-msg').textContent = res.ok ? '신청했습니다. 관리자가 승인하면 로그인할 수 있습니다' : errText(res);
+  if (res.ok) ev.target.reset();
+};
+$('to-signup').onclick = () => { $('login-form').hidden = true; $('signup-form').hidden = false; };
+$('to-login').onclick = () => { $('signup-form').hidden = true; $('login-form').hidden = false; };
+$('join-form').onsubmit = async ev => {
+  ev.preventDefault();
+  const res = await act('/rooms/join', { code: new FormData(ev.target).get('code') });
+  if (res.ok) { ev.target.reset(); $('side-msg').textContent = res.status === 'joined' ? `${res.room} 방에 참가했습니다` : `${res.room} 방에 신청했습니다. 방장 승인을 기다립니다`; }
+};
+$('create-form').onsubmit = async ev => {
+  ev.preventDefault();
+  const res = await act('/rooms', { name: new FormData(ev.target).get('name') });
+  if (res.ok) { ev.target.reset(); current = res.name; store.set('room', current); load(true); }
+};
+$('logout').onclick = async () => { await post('/logout'); lastJson = ''; D = null; load(true); };
+$('q').oninput = render;
+$('thread-clear').onclick = () => { thread = null; render(); };
+$('back').onclick = () => document.body.classList.remove('open');
+const savedTheme = store.get('theme');
+if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+$('theme').onclick = () => {
+  const dark = document.documentElement.dataset.theme
+    ? document.documentElement.dataset.theme === 'dark'
+    : matchMedia('(prefers-color-scheme: dark)').matches;
+  const t = dark ? 'light' : 'dark';
+  document.documentElement.dataset.theme = t;
+  store.set('theme', t);
+};
+load(true);
+setInterval(() => load(false), 30e3);
+</script>
+</body>
+</html>
