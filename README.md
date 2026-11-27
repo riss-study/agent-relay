@@ -56,6 +56,17 @@ relay.example.com {
 }
 ```
 
+집 회선처럼 통신사가 80 과 443 을 막는 곳에서는 다른 포트로 열고 인증서는 DNS 방식으로 받는다. 지금 서버가 이 구성이다. `caddy add-package github.com/caddy-dns/duckdns` 로 모듈을 넣고, 토큰은 `~/.config/agent-relay/duckdns.env` 에 두고 `caddy run --envfile` 로 읽힌다. 공유기는 외부 8443 을 이 PC 의 8443 으로 보낸다. 참가 주소는 `wss://agent-relay.duckdns.org:8443` 이다.
+
+```
+agent-relay.duckdns.org:8443 {
+    tls {
+        dns duckdns {env.DUCKDNS_TOKEN}
+    }
+    reverse_proxy 127.0.0.1:8765
+}
+```
+
 `/admin/*` 도 같은 주소로 노출되니 `ADMIN_TOKEN` 은 길게 둔다. 프록시의 유휴 끊김 시간은 플러그인 하트비트(30초)보다 길게 둔다.
 
 ## 플러그인
