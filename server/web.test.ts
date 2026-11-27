@@ -18,6 +18,7 @@ process.env.LOGIN_DELAY_MS = '10'
 import { Client, api } from './test-client.ts'
 const { start } = await import('./relay.ts')
 const { addUser } = await import('./web.ts')
+const { signup } = await import('./account.ts') // 정적 import 면 RELAY_STATE 를 정하기 전에 relay.ts 가 실행돼 실제 DB 를 연다
 const port = await start(0)
 const base = `http://localhost:${port}`
 const url = `ws://localhost:${port}`
@@ -52,6 +53,7 @@ test('가입과 로그인, 보안', async () => {
   assert.equal((await call('/signup', { login: 'not-mail', pass: 'kim-pass-1', name: '김' })).status, 400)
   assert.equal((await call('/signup', { login: 'Kim@x.io', pass: 'kim-pass-1', name: '김' })).status, 200)
   assert.equal((await call('/signup', { login: 'kim@x.io', pass: 'kim-pass-1', name: '김' })).status, 409)
+  assert.equal(signup('kim2@x.io', 'kim-pass-1', '김')?.error, 'name_taken') // 이름도 전체에서 하나. HTTP 로 부르면 가입 제한 5회를 넘겨서 함수로 본다
   assert.equal((await call('/login', { user: 'kim@x.io', pass: 'kim-pass-1' })).body.error, 'pending')
 
   // 로그인 잠금: 한 아이디로 5번 틀리면 429

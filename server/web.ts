@@ -247,7 +247,7 @@ export function web(req: IncomingMessage, res: ServerResponse): void {
     if (url === '/signup') {
       if (overLimit(`signup:${ip(req)}`, 5, 3600_000)) return reply(429, { error: 'too_many', detail: '가입 시도가 너무 많습니다. 한 시간 뒤에 다시 하세요' })
       const err = signup(str(b.login).toLowerCase(), String(b.pass ?? ''), str(b.name))
-      if (err) return reply(err.error === 'login_taken' ? 409 : 400, err)
+      if (err) return reply(err.error === 'login_taken' || err.error === 'name_taken' ? 409 : 400, err)
       audit(null, 'signup', `user:${str(b.login).toLowerCase()}`)
       return reply(200, { ok: true, status: 'pending' })
     }

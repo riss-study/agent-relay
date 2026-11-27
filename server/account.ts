@@ -75,6 +75,7 @@ export function signup(login: string, pass: string, name: string): { error: stri
   if (p) return { error: 'weak_pass', detail: p }
   if (!name || name.length > NAME_MAX || /[\p{Cc}]/u.test(name)) return { error: 'invalid', detail: `이름은 1자에서 ${NAME_MAX}자 사이여야 합니다` }
   if (userByLogin(login)) return { error: 'login_taken' }
+  if (db.prepare('SELECT 1 FROM user WHERE name = ?').get(name)) return { error: 'name_taken', detail: '이미 쓰는 이름입니다. 다른 이름을 적으세요' }
   db.prepare("INSERT INTO user (login, pass_hash, name, status, created_at) VALUES (?, ?, ?, 'pending', ?)").run(login, hashPass(pass), name, Date.now())
   setRole(userByLogin(login)!.id, 'member')
   return null

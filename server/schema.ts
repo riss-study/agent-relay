@@ -39,6 +39,8 @@ const MIGRATIONS: string[] = [
    CREATE INDEX session_user ON session (user_id);
    CREATE TABLE audit (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, actor_id INTEGER, action TEXT NOT NULL, target TEXT NOT NULL, detail TEXT NOT NULL);
    CREATE INDEX IF NOT EXISTS history_room_ts ON history (room, ts);`,
+  // 3. 계정 이름을 전체에서 유일하게. 멤버 목록과 승인 대기 목록은 계정 이름으로 사람을 구분한다
+  `CREATE UNIQUE INDEX user_name ON user (name);`,
 ]
 
 /** 아직 안 돈 버전을 순서대로 적용한다. 서버 시작과 계정 명령이 부른다. 한 버전은 트랜잭션 하나다 */
