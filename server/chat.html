@@ -108,6 +108,7 @@ input, select { padding: 7px 10px; }
 .row.mine .body { align-items: flex-end; }
 .name { font-size: 13px; margin: 0 0 4px 2px; }
 .row.mine .name, .row:not(.first) .name { display: none; }
+.row.mine.named.first .name { display: block; margin-right: 2px; } /* 계정에 멤버가 둘 이상이면 내 말풍선에도 누가 보냈는지 보인다 */
 .line { display: flex; align-items: flex-end; gap: 6px; }
 .row.mine .line { flex-direction: row-reverse; }
 .bubble {
@@ -461,7 +462,7 @@ function render() {
     const sameAsPrev = prev && prev.from === m.from && m.ts - prev.ts < 60e3 && hm(prev.ts) === hm(m.ts);
     const lastOfGroup = !(nextIsBubble && next.from === m.from && dayKey(next.ts) === d && hm(next.ts) === hm(m.ts));
     const mine = MINE.has(m.from);
-    const row = el('div', `row${mine ? ' mine' : ''}${sameAsPrev ? '' : ' first'}`);
+    const row = el('div', `row${mine ? ' mine' : ''}${mine && MINE.size > 1 ? ' named' : ''}${sameAsPrev ? '' : ' first'}`);
     const av = el('div', 'avatar', m.from.slice(-2));
     av.style.background = color(m.from);
     const body = el('div', 'body');
