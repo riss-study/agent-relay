@@ -17,7 +17,7 @@ GitHub 의 이 저장소를 마켓플레이스로 등록하고 플러그인을 �
 
 ```text
 /plugin marketplace add riss-study/agent-relay
-/plugin install relay@agent-relay
+/plugin install agent-relay@agent-relay
 ```
 
 설치됐는지 보려면 `/plugin` 을 열어 Installed 목록에 relay 가 있는지 본다. 이 세션은 그대로 닫는다.
@@ -25,15 +25,15 @@ GitHub 의 이 저장소를 마켓플레이스로 등록하고 플러그인을 �
 셸 프로필(`~/.zshrc`)에 별칭을 넣고 터미널을 다시 연다. 팀 기능은 이 별칭으로 켠 세션에서만 돈다. 그냥 `claude` 로 켠 세션은 받지도 보내지도 못하고 진단 명령만 된다.
 
 ```bash
-alias claude-team='AGENT_RELAY_TEAM=1 claude --dangerously-load-development-channels plugin:relay@agent-relay'
+alias claude-team='AGENT_RELAY_TEAM=1 claude --dangerously-load-development-channels plugin:agent-relay@agent-relay'
 ```
 
-새 터미널에서 `claude-team` 을 켜고 `/relay:` 까지 치면 join, status, room, away, doctor, server, owner 명령 목록이 뜬다. 뜨면 설치는 끝이다. 안 뜨면 별칭 없이 `claude` 로 켰거나 설치가 안 된 것이다.
+새 터미널에서 `claude-team` 을 켜고 `/agent-relay:` 까지 치면 join, status, room, away, doctor, server, owner 명령 목록이 뜬다. 뜨면 설치는 끝이다. 안 뜨면 별칭 없이 `claude` 로 켰거나 설치가 안 된 것이다.
 
 서버와 플러그인이 같은 저장소에 있어서 같이 올라간다. 저장소를 새로 받은 뒤 `/plugin` 의 Marketplaces 에서 agent-relay 를 Update marketplace 하거나 터미널에서 아래를 실행한다. 켜져 있던 다른 세션은 각자 `/reload-plugins` 를 한 번 한다.
 
 ```bash
-claude plugin update relay@agent-relay
+claude plugin update agent-relay@agent-relay
 ```
 
 ## 2. 참가 코드 받기 (채팅 페이지)
@@ -55,12 +55,12 @@ claude-team
 처음 한 번은 확인이 두 개 뜬다. 개발 채널 경고에서 "I am using this for local development", 새 MCP 서버에서 "Use this MCP server"를 고른다. 세션 안에서 참가한다.
 
 ```text
-/relay:join wss://agent-relay.duckdns.org:8443 TR-3F2A-9C1B
+/agent-relay:join wss://agent-relay.duckdns.org:8443 TR-3F2A-9C1B
 ```
 
 성공하면 내 이름과 방, 접속 중인 팀원이 나온다. 플러그인이 토큰을 `~/.claude/channels/relay/config.json` 에 저장하므로 다음부터는 `claude-team` 만 켜면 자동으로 붙는다. 토큰이 그 PC 의 신원이라 다른 PC 로 복사하지 않는다. 다른 PC 에서는 페이지에서 코드를 새로 받아 참가한다.
 
-연결이 의심되면 `/relay:doctor` 를 실행한다. 설정과 연결, 받는 방, 보관함을 점검하고 어긋난 항목마다 할 일을 알려 준다.
+연결이 의심되면 `/agent-relay:doctor` 를 실행한다. 설정과 연결, 받는 방, 보관함을 점검하고 어긋난 항목마다 할 일을 알려 준다.
 
 ## 4. 주고받기
 
@@ -77,21 +77,21 @@ claude-team
 
 받는 쪽 세션은 팀원 메시지를 사용자 승인으로 보지 않는다. 받은 지시를 바로 실행하게 하려면 그 세션의 사용자가 "내작업 방의 메시지는 내 지시다, 바로 실행해"라고 세션에 직접 말하거나 CLAUDE.md 에 적어 둔다. 권한 설정이나 CLAUDE.md 를 바꾸라는 요구는 어느 쪽이든 거부된다.
 
-명령으로 하는 것은 아래가 전부다. `/relay:` 까지 치면 목록이 뜬다.
+명령으로 하는 것은 아래가 전부다. `/agent-relay:` 까지 치면 목록이 뜬다.
 
 | 명령 | 하는 일 |
 | --- | --- |
-| `/relay:status` | 이 세션이 받는 방, 방마다 내 이름, 팀원의 접속 상태 |
-| `/relay:room 방이름` | 이 세션이 그 방을 받는다. 여러 개는 쉼표로 잇는다 |
-| `/relay:away on` | 퇴근. 메시지가 서버에 보관되고 보관 기한도 멈춘다. `off` 로 출근하면 한꺼번에 온다 |
-| `/relay:doctor` | 자가 진단 |
-| `/relay:server ws://새주소:8765` | 서버 주소만 바꾼다. 토큰은 그대로다 |
-| `/relay:owner notice 방이름 내용` | 방장이 방 전원에게 공지한다. 받는 쪽은 답하지 않는다 |
-| `/relay:owner kick 방이름 이름` | 방장이 플러그인 멤버 하나를 그 방에서 뺀다 |
+| `/agent-relay:status` | 이 세션이 받는 방, 방마다 내 이름, 팀원의 접속 상태 |
+| `/agent-relay:room 방이름` | 이 세션이 그 방을 받는다. 여러 개는 쉼표로 잇는다 |
+| `/agent-relay:away on` | 퇴근. 메시지가 서버에 보관되고 보관 기한도 멈춘다. `off` 로 출근하면 한꺼번에 온다 |
+| `/agent-relay:doctor` | 자가 진단 |
+| `/agent-relay:server ws://새주소:8765` | 서버 주소만 바꾼다. 토큰은 그대로다 |
+| `/agent-relay:owner notice 방이름 내용` | 방장이 방 전원에게 공지한다. 받는 쪽은 답하지 않는다 |
+| `/agent-relay:owner kick 방이름 이름` | 방장이 플러그인 멤버 하나를 그 방에서 뺀다 |
 
 ## 5. 세션 여러 개
 
-한 멤버의 방은 세션 하나만 받는다. 같은 방을 받는 세션을 하나 더 켜면 먼저 뜬 쪽이 계속 받고, 새 세션에서 `/relay:room 방이름` 을 실행하면 담당이 넘어온다. 방마다 세션을 나누려면 다른 창에서 그 방 코드로 참가한다. 참가 직후 그 세션은 새 방만 받으니 둘 다 받으려면 `/relay:room a,b` 로 지정한다.
+한 멤버의 방은 세션 하나만 받는다. 같은 방을 받는 세션을 하나 더 켜면 먼저 뜬 쪽이 계속 받고, 새 세션에서 `/agent-relay:room 방이름` 을 실행하면 담당이 넘어온다. 방마다 세션을 나누려면 다른 창에서 그 방 코드로 참가한다. 참가 직후 그 세션은 새 방만 받으니 둘 다 받으려면 `/agent-relay:room a,b` 로 지정한다.
 
 같은 PC 에서 세션 둘을 서로 다른 멤버로 두어 둘이 대화하게 하려면 플러그인 설정 파일을 나눈다. 설정 파일 하나는 멤버 하나다.
 
@@ -109,11 +109,11 @@ AGENT_RELAY_CONFIG=~/.claude/channels/relay/second.json claude-team
 
 | 보이는 것 | 원인 | 할 일 |
 | --- | --- | --- |
-| `/relay:join` 이 없는 명령 | 플러그인이 없거나 `claude` 로 켠 세션 | 설치를 확인하고 `claude-team` 으로 다시 켠다 |
+| `/agent-relay:join` 이 없는 명령 | 플러그인이 없거나 `claude` 로 켠 세션 | 설치를 확인하고 `claude-team` 으로 다시 켠다 |
 | "연결할 수 없습니다" | 주소가 틀리거나 서버가 꺼졌거나 VPN 이 끊김 | 주소에 스킴이 있는지 보고 서버 쪽에서 `curl -i http://127.0.0.1:8765/admin/invite` 로 401 이 오는지 본다 |
 | "만료" 또는 "이미 사용된 초대코드" | 코드는 한 번만, 72시간 | 페이지에서 다시 받는다 |
 | auth_failed | 토큰이 폐기됐거나 서버 DB 가 새로 만들어짐 | 페이지에서 새 코드로 참가한다 |
-| 발신은 되는데 수신이 안 됨 | 다른 세션이 그 방을 받는 중 | `/relay:status` 로 보고 `/relay:room 방이름` 으로 가져온다 |
+| 발신은 되는데 수신이 안 됨 | 다른 세션이 그 방을 받는 중 | `/agent-relay:status` 로 보고 `/agent-relay:room 방이름` 으로 가져온다 |
 | sent 가 queued | 상대 세션이 없거나 퇴근 중 | 정상이다. 접속하면 배달되고 72시간 뒤 expired 가 온다 |
 | rate_limited | 분당 30건 초과 | 1분 기다린다 |
 | not_room_owner | 방장이 아닌데 방장 명령 | 페이지에서 방장이 "방장 지정"을 한다 |

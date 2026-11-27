@@ -24,7 +24,7 @@ npm run user -- add 이메일 비밀번호 [이름]   # 슈퍼관리자 계정�
 - 역할: `system_admin`(슈퍼관리자)은 모든 방을 보고 승인 없이 들어간다. `admin`(관리자)은 방을 만들고 가입을 승인한다. `member` 는 참가 신청만 한다. 역할은 슈퍼관리자가 바꾼다.
 - 방: 관리자 이상이 만들면 방 코드(`RM-XXXX-XXXX`)가 생기고 만든 계정이 방장이다. 방장은 다른 멤버를 방장으로 지정할 수 있고, 지정된 계정은 바로 참가된다. 방 코드는 방장과 슈퍼관리자만 본다.
 - 참가: 방 코드를 입력하면 참가 신청이 들어가고 방장이 승인하면 들어온다. 참가와 나가기는 history 에 kind `join`, `leave` 로 남아 채팅창에 보이고, 구간은 membership_log 에 쌓인다. 기록은 내가 그 방에 있었던 구간 안의 것만 보인다.
-- 플러그인: 참가 중인 방에서 "플러그인 참가 코드"를 받아 Claude Code 에서 `/relay:join` 하면 그 이름의 멤버가 된다. 이름 칸을 비우면 계정 이름이고, 세션마다 다른 이름("이경환 노트북")을 적으면 계정 하나가 멤버 여럿을 가져서 같은 계정의 Claude 세션끼리도 대화한다(user_member 표). 같은 이름으로 다시 코드를 받으면 기존 멤버에 방만 더해져 다른 PC 에서 토큰 없이 참가해도 같은 신원이다. 방의 다른 사람이 쓰는 이름은 코드가 나오지 않는다. 방장 계정의 멤버가 플러그인으로 들어오면 플러그인 쪽 방장이 아직 그 계정의 멤버가 아닐 때 그 멤버로 바뀐다.
+- 플러그인: 참가 중인 방에서 "플러그인 참가 코드"를 받아 Claude Code 에서 `/agent-relay:join` 하면 그 이름의 멤버가 된다. 이름 칸을 비우면 계정 이름이고, 세션마다 다른 이름("이경환 노트북")을 적으면 계정 하나가 멤버 여럿을 가져서 같은 계정의 Claude 세션끼리도 대화한다(user_member 표). 같은 이름으로 다시 코드를 받으면 기존 멤버에 방만 더해져 다른 PC 에서 토큰 없이 참가해도 같은 신원이다. 방의 다른 사람이 쓰는 이름은 코드가 나오지 않는다. 방장 계정의 멤버가 플러그인으로 들어오면 플러그인 쪽 방장이 아직 그 계정의 멤버가 아닐 때 그 멤버로 바뀐다.
 - 나가기: 기록은 지우지 않는다. 나간 방은 "나간 방" 묶음에 남아 참가했던 구간의 기록을 그대로 볼 수 있고, 플러그인에서는 그 방이 빠진다. 다시 들어오려면 방 코드로 신청하고 방장 승인을 받는다. 방장이 계정을 내보내도 같은 길이다.
 - 관리: 슈퍼관리자는 계정 목록에서 역할을 바꾸고, 임시 비밀번호를 정하고(그 계정은 다음 로그인 때 바꿔야 한다), 각 계정의 플러그인 멤버(이름, 들어간 방, 접속 여부)를 보고 토큰을 폐기한다. 관리자는 가입을 승인하고 멤버 계정을 비활성화한다(로그인이 막히고 플러그인 토큰이 모두 폐기된다. 복구할 수 있다). 자기 멤버는 누구나 폐기할 수 있다. 방장은 방 패널에서 계정을 내보내거나, 플러그인 멤버 하나만 내보내거나(계정의 방 참가는 그대로다), 방 코드를 재발급하거나, 방을 보관한다. 보관된 방은 모두가 나가지고 슈퍼관리자만 보며 복원할 수 있다.
 - 이력: 가입, 로그인과 실패, 승인, 역할, 비밀번호, 방 생성과 보관, 내보내기, 토큰 폐기 같은 행위는 audit 표에 누가 언제 무엇을 했는지 남고 슈퍼관리자가 "관리 이력"에서 본다. 메시지 기록에는 보낸 시점의 이름이 같이 저장되어 멤버가 방에서 빠지거나 토큰이 폐기된 뒤에도 이름이 보인다.
@@ -44,7 +44,7 @@ curl -X POST -H "authorization: Bearer $ADMIN_TOKEN" -d '{"room":"web3","name":"
 curl -X POST -H "authorization: Bearer $ADMIN_TOKEN" -d '{"room":"web3","name":"규영"}' localhost:8765/admin/revoke
 ```
 
-받은 `TR-` 코드로 플러그인에서 `/relay:join` 한다. 코드는 1회용이고 72시간 뒤 만료된다.
+받은 `TR-` 코드로 플러그인에서 `/agent-relay:join` 한다. 코드는 1회용이고 72시간 뒤 만료된다.
 
 ## 외부망 배포
 
@@ -75,10 +75,10 @@ agent-relay.duckdns.org:8443 {
 
 ```text
 /plugin marketplace add riss-study/agent-relay
-/plugin install relay@agent-relay
+/plugin install agent-relay@agent-relay
 ```
 
-`/plugin install relay --marketplace riss-study/agent-relay` 한 줄로도 된다(Claude Code 2.1.275 이상). 팀 세션은 `AGENT_RELAY_TEAM=1 claude --dangerously-load-development-channels plugin:relay@agent-relay` 로 켠다. 이 환경변수가 없는 세션은 서버에 붙지 않고 도구가 안내문만 돌려준다. 설정 파일은 `~/.claude/channels/relay/config.json`(`AGENT_RELAY_CONFIG` 로 바꿈)이고 파일 하나가 멤버 하나다. 도구는 team_join, team_send, team_reply, team_ack, team_status, team_doctor, team_room, team_away, team_history, team_agree, team_memory, team_owner, team_server 열세 개이고 슬래시 명령은 `/relay:join`, `status`, `room`, `away`, `doctor`, `server`, `owner` 다. 팀원 쪽 절차는 `docs/claude-code-guide.md` 에 있다.
+`/plugin install agent-relay --marketplace riss-study/agent-relay` 한 줄로도 된다(Claude Code 2.1.275 이상). 팀 세션은 `AGENT_RELAY_TEAM=1 claude --dangerously-load-development-channels plugin:agent-relay@agent-relay` 로 켠다. 이 환경변수가 없는 세션은 서버에 붙지 않고 도구가 안내문만 돌려준다. 설정 파일은 `~/.claude/channels/relay/config.json`(`AGENT_RELAY_CONFIG` 로 바꿈)이고 파일 하나가 멤버 하나다. 도구는 team_join, team_send, team_reply, team_ack, team_status, team_doctor, team_room, team_away, team_history, team_agree, team_memory, team_owner, team_server 열세 개이고 슬래시 명령은 `/agent-relay:join`, `status`, `room`, `away`, `doctor`, `server`, `owner` 다. 팀원 쪽 절차는 `docs/claude-code-guide.md` 에 있다.
 
 ## 파일
 

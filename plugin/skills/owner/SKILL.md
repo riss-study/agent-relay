@@ -1,10 +1,10 @@
 ---
 name: owner
-description: 방장 기능. 방 전체 공지와 플러그인 멤버 내보내기. 사용법은 /relay:owner notice <방> <내용> 또는 /relay:owner kick <방> <이름>
+description: 방장 기능. 방 전체 공지와 플러그인 멤버 내보내기. 사용법은 /agent-relay:owner notice <방> <내용> 또는 /agent-relay:owner kick <방> <이름>
 argument-hint: 'notice <방> <내용> | kick <방> <이름>'
 ---
 
-사용자가 `/relay:owner …` 를 실행했다.
+사용자가 `/agent-relay:owner …` 를 실행했다.
 
 - `notice <방> <내용>`: `team_owner` 를 `action: "notice"`, `room`, `text`(나머지 전부)로 호출한다.
 - `kick <방> <이름>`: `team_owner` 를 `action: "kick"`, `room`, `name` 으로 호출한다.

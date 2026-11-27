@@ -418,7 +418,7 @@ function renderPanel(r) {
       const res = await post(`/rooms/${encodeURIComponent(r.name)}/code`, { label: label.value });
       const out = $('code-out');
       out.replaceChildren();
-      if (res.ok) { out.append('Claude Code 에서 /team-relay:join 할 때 입력: ', el('span', 'code', res.code), ' (1회용, 72시간)'); }
+      if (res.ok) { out.append('Claude Code 에서 /agent-relay:join 할 때 입력: ', el('span', 'code', res.code), ' (1회용, 72시간)'); }
       else out.append(el('span', 'msg err', errText(res)));
       if (res.ok && r.status !== 'joined') load(true);
     }));
