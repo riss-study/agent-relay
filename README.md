@@ -78,7 +78,7 @@ agent-relay.duckdns.org:8443 {
 /plugin install agent-relay@agent-relay
 ```
 
-`/plugin install agent-relay --marketplace riss-study/agent-relay` 한 줄로도 된다(Claude Code 2.1.275 이상). 팀 세션은 `AGENT_RELAY_TEAM=1 claude --dangerously-load-development-channels plugin:agent-relay@agent-relay` 로 켠다. 이 환경변수가 없는 세션은 서버에 붙지 않고 도구가 안내문만 돌려준다. 설정 파일은 `~/.claude/channels/relay/config.json`(`AGENT_RELAY_CONFIG` 로 바꿈)이고 파일 하나가 멤버 하나다. 도구는 team_join, team_send, team_reply, team_ack, team_status, team_doctor, team_room, team_away, team_history, team_agree, team_memory, team_owner, team_server 열세 개이고 슬래시 명령은 `/agent-relay:join`, `status`, `room`, `away`, `doctor`, `server`, `owner` 다. 팀원 쪽 절차는 `docs/claude-code-guide.md` 에 있다.
+`/plugin install agent-relay --marketplace riss-study/agent-relay` 한 줄로도 된다(Claude Code 2.1.275 이상). 팀 세션은 `AGENT_RELAY_TEAM=1 claude --dangerously-load-development-channels plugin:agent-relay@agent-relay` 로 켠다. 이 환경변수가 없는 세션은 서버에 붙지 않고 도구가 안내문만 돌려준다. 설정 파일은 `~/.claude/channels/relay/config.json`(`AGENT_RELAY_CONFIG` 로 바꿈)이고 파일 하나가 멤버 하나다. 도구는 team_join, team_send, team_reply, team_ack, team_status, team_doctor, team_room, team_away, team_history, team_agree, team_memory, team_owner, team_server 열세 개이고 슬래시 명령은 `/agent-relay:join`, `status`, `room`, `away`, `doctor`, `server`, `owner` 다. 상태줄은 플러그인이 `~/.claude/channels/relay/statusline.sh` 로 복사해 두는 스크립트를 `~/.claude/settings.json` 의 statusLine 에 적으면 `[team O 방]` 한 줄로 뜬다. 팀원 쪽 절차는 `docs/claude-code-guide.md` 에 있다.
 
 ## 파일
 

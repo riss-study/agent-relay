@@ -62,6 +62,31 @@ claude-team
 
 연결이 의심되면 `/agent-relay:doctor` 를 실행한다. 설정과 연결, 받는 방, 보관함을 점검하고 어긋난 항목마다 할 일을 알려 준다.
 
+### 상태줄
+
+화면 아래 상태줄에 `[team O web3]` 처럼 연결 상태가 뜨게 할 수 있다. 플러그인이 켜질 때 `~/.claude/channels/relay/statusline.sh` 를 복사해 두므로 `~/.claude/settings.json` 에 아래를 넣고 Claude Code 를 다시 켠다. `/agent-relay:doctor` 의 "상태줄" 줄이 O 면 등록된 것이다.
+
+```json
+{ "statusLine": { "type": "command", "command": "~/.claude/channels/relay/statusline.sh" } }
+```
+
+이미 다른 statusLine 을 쓰고 있으면 입력을 한 번 받아 둘 다에 넘긴다.
+
+```json
+{ "statusLine": { "type": "command", "command": "IN=$(cat); printf '%s' \"$IN\" | 기존명령; printf ' '; printf '%s' \"$IN\" | ~/.claude/channels/relay/statusline.sh" } }
+```
+
+| 표시 | 뜻 |
+| --- | --- |
+| `[team O web3]` | web3 방을 받는 중. 뒤에 `보관 2` 가 붙으면 나를 기다리는 보관 메시지가 2건 |
+| `[team 담당없음]` | 아무 방도 받지 않음. `/agent-relay:room 방이름` 으로 정한다 |
+| `[team 퇴근]` | away 켜짐 |
+| `[team X 미참가]` | 아직 참가 전 |
+| `[team X 연결없음]` | 서버에 못 붙음. 플러그인이 재접속을 시도 중이다 |
+| `[team X 토큰 무효]`, `[team X 차단됨]`, `[team X 구버전]` | 새 코드로 참가하거나 플러그인을 업데이트한다 |
+| `[team X 플러그인 미동작]` | 플러그인 프로세스가 죽음. `/mcp` 에서 다시 연결하거나 세션을 다시 켠다 |
+| 아무것도 없음 | 팀 세션이 아니다 |
+
 ## 4. 주고받기
 
 명령 없이 세션에 말하면 된다. 플러그인이 team_send, team_reply 같은 도구를 알아서 부른다.

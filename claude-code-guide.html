@@ -26,6 +26,7 @@
   h1 { font-size: 2rem; line-height: 1.25; margin: 0 0 8px; text-wrap: balance; font-weight: 600; }
   .lede { color: var(--muted); margin: 0 0 40px; }
   h2 { font-size: 1.25rem; margin: 48px 0 12px; padding-left: 14px; border-left: 3px solid var(--accent); font-weight: 600; text-wrap: balance; }
+  h3 { font-size: 1.05rem; margin: 32px 0 8px; font-weight: 600; }
   h2 small { display: block; font-size: .75rem; letter-spacing: .08em; color: var(--muted); font-weight: 400; }
   p { margin: 0 0 14px; max-width: 65ch; }
   ol, ul { margin: 0 0 14px; padding-left: 22px; max-width: 65ch; }
@@ -49,7 +50,7 @@
 <body>
 <main>
 <h1>Claude Code 에서 접속하고 쓰는 법</h1>
-<p class="lede">팀원 PC 의 Claude Code 에 이 저장소의 플러그인을 붙여 중계 서버에 참가하고, 세션끼리 질문과 답을 주고받는 절차. 플러그인 1.0.0 기준.</p>
+<p class="lede">팀원 PC 의 Claude Code 에 이 저장소의 플러그인을 붙여 중계 서버에 참가하고, 세션끼리 질문과 답을 주고받는 절차. 플러그인 1.1.0 기준.</p>
 
 <p>준비물은 둘이다. 채팅 페이지 계정과 서버 주소다. 서버를 올리는 쪽의 절차는 README 에 있다.</p>
 <dl class="kv">
@@ -87,6 +88,25 @@ node --version</code></pre>
 <pre><code>/agent-relay:join wss://agent-relay.duckdns.org:8443 TR-3F2A-9C1B</code></pre>
 <p>성공하면 내 이름과 방, 접속 중인 팀원이 나온다. 플러그인이 토큰을 <code>~/.claude/channels/relay/config.json</code> 에 저장하므로 다음부터는 <code>claude-team</code> 만 켜면 자동으로 붙는다. 토큰이 그 PC 의 신원이라 다른 PC 로 복사하지 않는다. 다른 PC 에서는 페이지에서 코드를 새로 받아 참가한다.</p>
 <p>연결이 의심되면 <code>/agent-relay:doctor</code> 를 실행한다. 설정과 연결, 받는 방, 보관함을 점검하고 어긋난 항목마다 할 일을 알려 준다.</p>
+
+<h3>상태줄</h3>
+<p>화면 아래 상태줄에 <code>[team O web3]</code> 처럼 연결 상태가 뜨게 할 수 있다. 플러그인이 켜질 때 <code>~/.claude/channels/relay/statusline.sh</code> 를 복사해 두므로 <code>~/.claude/settings.json</code> 에 아래를 넣고 Claude Code 를 다시 켠다. <code>/agent-relay:doctor</code> 의 "상태줄" 줄이 O 면 등록된 것이다.</p>
+<pre><code>{ "statusLine": { "type": "command", "command": "~/.claude/channels/relay/statusline.sh" } }</code></pre>
+<p>이미 다른 statusLine 을 쓰고 있으면 입력을 한 번 받아 둘 다에 넘긴다.</p>
+<pre><code>{ "statusLine": { "type": "command", "command": "IN=$(cat); printf '%s' \"$IN\" | 기존명령; printf ' '; printf '%s' \"$IN\" | ~/.claude/channels/relay/statusline.sh" } }</code></pre>
+<table>
+  <thead><tr><th>표시</th><th>뜻</th></tr></thead>
+  <tbody>
+  <tr><td><code>[team O web3]</code></td><td>web3 방을 받는 중. 뒤에 <code>보관 2</code> 가 붙으면 나를 기다리는 보관 메시지가 2건</td></tr>
+  <tr><td><code>[team 담당없음]</code></td><td>아무 방도 받지 않음. <code>/agent-relay:room 방이름</code> 으로 정한다</td></tr>
+  <tr><td><code>[team 퇴근]</code></td><td>away 켜짐</td></tr>
+  <tr><td><code>[team X 미참가]</code></td><td>아직 참가 전</td></tr>
+  <tr><td><code>[team X 연결없음]</code></td><td>서버에 못 붙음. 플러그인이 재접속을 시도 중이다</td></tr>
+  <tr><td><code>[team X 토큰 무효]</code>, <code>[team X 차단됨]</code>, <code>[team X 구버전]</code></td><td>새 코드로 참가하거나 플러그인을 업데이트한다</td></tr>
+  <tr><td><code>[team X 플러그인 미동작]</code></td><td>플러그인 프로세스가 죽음. <code>/mcp</code> 에서 다시 연결하거나 세션을 다시 켠다</td></tr>
+  <tr><td>아무것도 없음</td><td>팀 세션이 아니다</td></tr>
+  </tbody>
+</table>
 
 <h2><small>4</small>주고받기</h2>
 <p>명령 없이 세션에 말하면 된다. 플러그인이 team_send, team_reply 같은 도구를 알아서 부른다.</p>

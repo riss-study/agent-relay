@@ -7,8 +7,8 @@
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { spawn, type ChildProcess } from 'node:child_process'
-import { mkdtempSync, readFileSync } from 'node:fs'
+import { execFileSync, spawn, type ChildProcess } from 'node:child_process'
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
@@ -56,6 +56,8 @@ class Plugin {
 
 const teamEnv = (cfg: string, session: string): Record<string, string> => ({ AGENT_RELAY_TEAM: '1', AGENT_RELAY_CONFIG: join(dir, cfg), CLAUDE_CODE_SESSION_ID: session })
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
+/** 설정 폴더로 복사된 statusline.sh 를 Claude Code 처럼 세션 JSON 을 stdin 으로 주고 돌린다 */
+const statusline = (session: string): string => execFileSync('sh', [join(dir, 'statusline.sh')], { input: JSON.stringify({ session_id: session }), env: { ...process.env, AGENT_RELAY_STATE_DIR: dir } }).toString()
 
 test('참가, 수신 알림, 답장, 상태, 재시작 자동 접속', async () => {
   const a = new Plugin(teamEnv('a.json', 's-a'))
@@ -74,6 +76,16 @@ test('참가, 수신 알림, 답장, 상태, 재시작 자동 접속', async () 
   assert.equal(cfg.url, `ws://localhost:${port}/ws`)
   assert.ok(cfg.token)
   assert.deepEqual(cfg.sessions['s-a'], ['web3'])
+
+  // 상태줄: 플러그인이 쓴 state-<세션>.json 을 복사된 statusline.sh 가 읽는다
+  const sf = JSON.parse(readFileSync(join(dir, 'state-s-a.json'), 'utf8'))
+  assert.equal(sf.connected, true); assert.deepEqual(sf.held, ['web3'])
+  assert.equal(statusline('s-a'), '[team O web3]')
+  assert.match(await a.tool('team_away', { mode: 'on' }), /퇴근/)
+  assert.equal(statusline('s-a'), '[team 퇴근]')
+  assert.match(await a.tool('team_away', { mode: 'off' }), /출근/)
+  assert.equal(statusline('s-a'), '[team O web3]')
+  assert.equal(statusline('s-none'), '') // 팀 세션이 아니면 아무것도 띄우지 않는다
 
   // 상대가 보내면 채널 알림으로 온다
   const b = new BaseClient(url); await b.open()
@@ -109,9 +121,10 @@ test('참가, 수신 알림, 답장, 상태, 재시작 자동 접속', async () 
   assert.equal((await a2.notification()).params.content, '다시 왔어?')
 
   // 팀 세션이 아니면 서버에 붙지 않고 안내문만 돌려준다
-  const plain = new Plugin({ AGENT_RELAY_CONFIG: join(dir, 'a.json'), CLAUDE_CODE_SESSION_ID: 's-p' })
+  const plain = new Plugin({ AGENT_RELAY_TEAM: '', AGENT_RELAY_CONFIG: join(dir, 'a.json'), CLAUDE_CODE_SESSION_ID: 's-p' }) // 팀 세션(claude-team) 안에서 테스트를 돌려도 물려받지 않게
   assert.match((await plain.req('initialize', { protocolVersion: '2025-06-18' })).result.instructions, /팀 세션이 아니다/)
   assert.match(await plain.tool('team_send', { to: '선혁', message: 'x' }), /팀 세션이 아닙니다/)
   assert.match(await plain.tool('team_doctor'), /X 팀 세션/)
+  assert.equal(existsSync(join(dir, 'state-s-p.json')), false)
   plain.kill(); a2.kill(); b.ws.close()
 })

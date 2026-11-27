@@ -15,18 +15,21 @@
 //   CLAUDE_CODE_SESSION_ID   Claude Code 가 준다. 방 담당의 단위
 //   CLAUDE_PROJECT_DIR       Claude Code 가 준다. 서버 기록용
 //
+// 상태줄: 연결 상태를 설정 폴더의 state-<세션>.json 에 적고, statusline.sh 를 같은 폴더로 복사해 둔다.
+// Claude Code 의 statusLine 이 그 스크립트를 돌려 [team O 방] 한 줄을 띄운다.
+//
 // 구역
 //   1. 설정 파일        2. MCP 전송         3. 중계 서버 연결과 푸시
 //   4. 도구 목록        5. 도구 실행        6. 시작
 // ============================================================================
 
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { chmodSync, copyFileSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join as pathJoin } from 'node:path'
 import { createInterface } from 'node:readline'
 
 export const PROTO = 5
-export const VERSION = '1.0.0'
+export const VERSION = '1.1.0'
 const TEAM = process.env.AGENT_RELAY_TEAM === '1'
 const SESSION = process.env.CLAUDE_CODE_SESSION_ID ?? ''
 const CONFIG_PATH = process.env.AGENT_RELAY_CONFIG ?? pathJoin(homedir(), '.claude', 'channels', 'relay', 'config.json')
@@ -76,6 +79,34 @@ export function normalizeUrl(s: string): string {
   return u
 }
 
+/** 상태줄(statusline.sh)이 읽는 파일. 연결이 바뀔 때와 하트비트마다 쓴다 */
+const STATE_DIR = dirname(CONFIG_PATH)
+const STATE_PATH = pathJoin(STATE_DIR, `state-${SESSION || process.pid}.json`)
+const STATUSLINE_PATH = pathJoin(STATE_DIR, 'statusline.sh')
+const state = { connected: false, away: false, held: [] as string[], queued: 0, lastError: '' }
+function writeState(patch: Partial<typeof state> = {}): void {
+  if (!TEAM) return
+  Object.assign(state, patch)
+  try {
+    mkdirSync(STATE_DIR, { recursive: true, mode: 0o700 })
+    const tmp = `${STATE_PATH}.${process.pid}.tmp`
+    writeFileSync(tmp, JSON.stringify({ ...state, updatedAt: Date.now() }))
+    renameSync(tmp, STATE_PATH)
+  } catch (e) { log(`상태 파일 실패: ${(e as Error).message}`) }
+}
+/** 플러그인 폴더의 statusline.sh 를 설정 폴더로 복사한다. 설정에 적는 경로에 버전이 들어가지 않게 */
+function installStatusline(): void {
+  if (!TEAM) return
+  try {
+    const src = pathJoin(import.meta.dirname, 'statusline.sh')
+    let cur = ''
+    try { cur = readFileSync(STATUSLINE_PATH, 'utf8') } catch { /* 처음 */ }
+    if (cur === readFileSync(src, 'utf8')) return
+    mkdirSync(STATE_DIR, { recursive: true, mode: 0o700 })
+    copyFileSync(src, STATUSLINE_PATH); chmodSync(STATUSLINE_PATH, 0o755)
+  } catch (e) { log(`상태줄 복사 실패: ${(e as Error).message}`) }
+}
+
 // ── 2. MCP 전송 : 한 줄에 JSON-RPC 하나 ─────────────────────────────────────
 function emit(msg: unknown): void { process.stdout.write(`${JSON.stringify(msg)}\n`) }
 /** 팀 메시지를 대화에 넣는다. meta 의 키가 <channel> 태그 속성이 된다 */
@@ -121,6 +152,7 @@ function attach(sock: WebSocket): void {
     if (sock !== ws) return // 이미 다른 소켓으로 바뀌었다(join, server 변경)
     ws = null; welcome = null
     if (heartbeat) { clearInterval(heartbeat); heartbeat = null }
+    writeState({ connected: false })
     if (stopped || !TEAM) return
     setTimeout(() => void connect(), reconnectDelay)
     reconnectDelay = Math.min(reconnectDelay * 2, 30000)
@@ -148,6 +180,7 @@ function onPush(f: F): void {
     }
     case 'error': {
       stopped = s('reason')
+      writeState({ connected: false, lastError: stopped })
       const why = stopped === 'revoked' ? '관리자가 이 접속을 차단했습니다. 다시 쓰려면 새 참가 코드로 참가하세요' : '같은 세션이 다른 곳에서 다시 접속해 이 접속을 닫습니다'
       return notify(`[팀 연결 종료] ${why}`, { kind: 'system' })
     }
@@ -172,12 +205,13 @@ async function hello(sock: WebSocket, cfg: Config): Promise<F | null> {
   const w = await request(sock, { type: 'hello', v: PROTO, plugin: VERSION, token: cfg.token, gateway: true, session: SESSION, rooms: myRooms(cfg), dir: process.env.CLAUDE_PROJECT_DIR ?? process.cwd() })
   if (w.type !== 'welcome') {
     const reason = String(w.reason ?? '')
-    if (reason === 'auth_failed' || reason === 'plugin_outdated') { stopped = reason; notify(`[팀 연결 실패] ${reason === 'auth_failed' ? '토큰이 폐기됐거나 서버가 바뀌었습니다. 새 참가 코드로 참가하세요' : '플러그인이 오래됐습니다'}`, { kind: 'system' }) }
+    if (reason === 'auth_failed' || reason === 'plugin_outdated') { stopped = reason; writeState({ connected: false, lastError: reason }); notify(`[팀 연결 실패] ${reason === 'auth_failed' ? '토큰이 폐기됐거나 서버가 바뀌었습니다. 새 참가 코드로 참가하세요' : '플러그인이 오래됐습니다'}`, { kind: 'system' }) }
     sock.close()
     return null
   }
   welcome = w
   reconnectDelay = 1000
+  writeState({ connected: true, held: (w.held ?? []) as string[], lastError: '' })
   const p = w.protocol as { rev?: number; instructions?: string } | undefined
   if (p?.instructions && p.rev !== cfg.protocol?.rev) saveConfig({ protocol: { rev: Number(p.rev ?? 0), instructions: p.instructions } })
   if (w.rooms) saveConfig({ rooms: w.rooms as Record<string, string> })
@@ -185,7 +219,7 @@ async function hello(sock: WebSocket, cfg: Config): Promise<F | null> {
   const lost = (w.lost ?? []) as string[]
   if (lost.length) notify(`[수신 없음] ${lost.join(', ')} 방은 다른 세션이 받고 있습니다. 이 세션에서 받으려면 team_room 을 쓰세요`, { kind: 'system' })
   if (heartbeat) clearInterval(heartbeat)
-  heartbeat = setInterval(() => void request(ws, { type: 'doctor' }), HEARTBEAT)
+  heartbeat = setInterval(() => void request(ws, { type: 'doctor' }).then(r => { if (r.type === 'doctor') writeState({ held: (r.held ?? []) as string[], queued: Number(r.queueForMe ?? 0), away: !!r.away }) }), HEARTBEAT)
   return w
 }
 
@@ -288,8 +322,8 @@ async function run(name: string, a: Args): Promise<string> {
     case 'team_ack': return call('ack_ok', { type: 'ack', thread: a.thread, status: a.status }, () => '처리 중 알림을 보냈습니다')
     case 'team_status': return call('status', { type: 'status' }, statusText)
     case 'team_doctor': return doctor()
-    case 'team_room': return call('room_ok', { type: 'room', rooms: a.rooms }, r => { bindRooms((r.held ?? []) as string[]); return [`이 세션이 받는 방: ${list(r.held)}`, Array.isArray(r.stolen) && r.stolen.length ? `다른 세션에서 가져옴: ${list(r.stolen)}` : '', Array.isArray(r.lost) && r.lost.length ? `소속이 아닌 방: ${list(r.lost)}` : ''].filter(Boolean).join('\n') })
-    case 'team_away': return call('away_ok', { type: 'away', on: a.mode === 'on' }, r => (r.away ? '퇴근 처리했습니다. 메시지는 서버에 보관됩니다' : `출근 처리했습니다. 보관된 메시지 ${Number(r.pending ?? 0)}건이 곧 배달됩니다`))
+    case 'team_room': return call('room_ok', { type: 'room', rooms: a.rooms }, r => { bindRooms((r.held ?? []) as string[]); writeState({ held: (r.held ?? []) as string[] }); return [`이 세션이 받는 방: ${list(r.held)}`, Array.isArray(r.stolen) && r.stolen.length ? `다른 세션에서 가져옴: ${list(r.stolen)}` : '', Array.isArray(r.lost) && r.lost.length ? `소속이 아닌 방: ${list(r.lost)}` : ''].filter(Boolean).join('\n') })
+    case 'team_away': return call('away_ok', { type: 'away', on: a.mode === 'on' }, r => (writeState({ away: !!r.away }), r.away ? '퇴근 처리했습니다. 메시지는 서버에 보관됩니다' : `출근 처리했습니다. 보관된 메시지 ${Number(r.pending ?? 0)}건이 곧 배달됩니다`))
     case 'team_history': return call('history', { type: 'history', peer: a.peer, room: a.room, thread: a.thread, limit: a.limit, before: a.before }, r => {
       const es = (r.entries ?? []) as Array<Record<string, unknown>>
       if (!es.length) return '기록이 없습니다'
@@ -335,6 +369,9 @@ async function doctor(): Promise<string> {
     `${ws && welcome ? 'O' : 'X'} 서버 연결${stopped ? ` (멈춤: ${stopped})` : ''}`,
     `- 세션 id ${SESSION || '(없음)'}, 방 ${Object.keys(cfg.rooms ?? {}).join(', ') || '(없음)'}`,
   ]
+  let sl = false
+  try { sl = readFileSync(pathJoin(homedir(), '.claude', 'settings.json'), 'utf8').includes('channels/relay/statusline.sh') } catch { /* 설정 없음 */ }
+  lines.push(`${sl ? 'O' : 'X'} 상태줄${sl ? '' : `. ~/.claude/settings.json 의 statusLine command 에 ${STATUSLINE_PATH} 를 넣으세요`}`)
   if (ws && welcome) {
     const r = await request(ws, { type: 'doctor' })
     if (r.type === 'doctor') lines.push(`${Array.isArray(r.held) && r.held.length ? 'O' : 'X'} 받는 방 ${list(r.held)}${Array.isArray(r.heldByOther) && r.heldByOther.length ? ` (다른 세션: ${list(r.heldByOther)})` : ''}`, `- 나를 기다리는 보관 ${Number(r.queueForMe ?? 0)}건, 퇴근 ${r.away ? '예' : '아니요'}, 규약 rev ${String(r.protocolRev ?? '없음')}`)
@@ -368,6 +405,8 @@ async function handle(m: Rpc): Promise<unknown> {
   }
 }
 
+installStatusline()
+writeState({ lastError: loadConfig().token ? '' : 'not_joined' })
 const connecting = connect()
 createInterface({ input: process.stdin }).on('line', line => {
   if (!line.trim()) return
@@ -379,4 +418,4 @@ createInterface({ input: process.stdin }).on('line', line => {
     e => emit({ jsonrpc: '2.0', id: m.id, error: { code: -32000, message: (e as Error).message } }),
   )
 })
-process.stdin.on('end', () => process.exit(0))
+process.stdin.on('end', () => { try { unlinkSync(STATE_PATH) } catch { /* 없음 */ } process.exit(0) })

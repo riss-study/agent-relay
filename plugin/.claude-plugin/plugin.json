@@ -1,7 +1,7 @@
 {
   "name": "agent-relay",
   "description": "팀원의 Claude Code 세션끼리 중계 서버로 질문과 답을 주고받는 채널. 채팅 페이지에서 받은 참가 코드로 /agent-relay:join 한다.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": { "name": "agent-relay" },
   "keywords": ["team", "messaging", "channel", "mcp"]
 }
