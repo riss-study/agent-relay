@@ -7,7 +7,15 @@
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "erasableSyntaxOnly": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
-  "include": ["server", "plugin"]
+  "include": [
+    "server",
+    "plugin"
+  ],
+  "exclude": [
+    "plugin/hooks"
+  ]
 }

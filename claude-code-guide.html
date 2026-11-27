@@ -50,7 +50,7 @@
 <body>
 <main>
 <h1>Claude Code 에서 접속하고 쓰는 법</h1>
-<p class="lede">팀원 PC 의 Claude Code 에 이 저장소의 플러그인을 붙여 중계 서버에 참가하고, 세션끼리 질문과 답을 주고받는 절차. 플러그인 1.1.0 기준.</p>
+<p class="lede">팀원 PC 의 Claude Code 에 이 저장소의 플러그인을 붙여 중계 서버에 참가하고, 세션끼리 질문과 답을 주고받는 절차. 플러그인 1.2.0 기준.</p>
 
 <p>준비물은 둘이다. 채팅 페이지 계정과 서버 주소다. 서버를 올리는 쪽의 절차는 README 에 있다.</p>
 <dl class="kv">
@@ -90,10 +90,9 @@ node --version</code></pre>
 <p>연결이 의심되면 <code>/agent-relay:doctor</code> 를 실행한다. 설정과 연결, 받는 방, 보관함을 점검하고 어긋난 항목마다 할 일을 알려 준다.</p>
 
 <h3>상태줄</h3>
-<p>화면 아래 상태줄에 <code>[team O web3]</code> 처럼 연결 상태가 뜨게 할 수 있다. 플러그인이 켜질 때 <code>~/.claude/channels/relay/statusline.sh</code> 를 복사해 두므로 <code>~/.claude/settings.json</code> 에 아래를 넣고 Claude Code 를 다시 켠다. <code>/agent-relay:doctor</code> 의 "상태줄" 줄이 O 면 등록된 것이다.</p>
+<p>팀 세션이면 프롬프트 아래에 <code>[team O web3]</code> 처럼 연결 상태가 한 줄로 뜬다. 플러그인에 들어 있어서 따로 설정할 것이 없다. 플러그인이 5초마다 자기 상태 파일을 읽어 띄우고, 팀 세션이 아니면 아무것도 띄우지 않는다.</p>
+<p>안 뜨면 Claude Code 가 플러그인 모듈을 싣지 못하는 버전이다. 그때는 <code>claude update</code> 로 올리거나, 플러그인이 복사해 두는 <code>~/.claude/channels/relay/statusline.sh</code> 를 <code>~/.claude/settings.json</code> 에 넣고 다시 켠다.</p>
 <pre><code>{ "statusLine": { "type": "command", "command": "~/.claude/channels/relay/statusline.sh" } }</code></pre>
-<p>이미 다른 statusLine 을 쓰고 있으면 입력을 한 번 받아 둘 다에 넘긴다.</p>
-<pre><code>{ "statusLine": { "type": "command", "command": "IN=$(cat); printf '%s' \"$IN\" | 기존명령; printf ' '; printf '%s' \"$IN\" | ~/.claude/channels/relay/statusline.sh" } }</code></pre>
 <table>
   <thead><tr><th>표시</th><th>뜻</th></tr></thead>
   <tbody>

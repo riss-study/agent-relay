@@ -64,16 +64,12 @@ claude-team
 
 ### 상태줄
 
-화면 아래 상태줄에 `[team O web3]` 처럼 연결 상태가 뜨게 할 수 있다. 플러그인이 켜질 때 `~/.claude/channels/relay/statusline.sh` 를 복사해 두므로 `~/.claude/settings.json` 에 아래를 넣고 Claude Code 를 다시 켠다. `/agent-relay:doctor` 의 "상태줄" 줄이 O 면 등록된 것이다.
+팀 세션이면 프롬프트 아래에 `[team O web3]` 처럼 연결 상태가 한 줄로 뜬다. 플러그인에 들어 있어서 따로 설정할 것이 없다. 플러그인이 5초마다 자기 상태 파일을 읽어 띄우고, 팀 세션이 아니면 아무것도 띄우지 않는다.
+
+안 뜨면 Claude Code 가 플러그인 모듈을 싣지 못하는 버전이다. 그때는 `claude update` 로 올리거나, 플러그인이 복사해 두는 `~/.claude/channels/relay/statusline.sh` 를 `~/.claude/settings.json` 에 넣고 다시 켠다.
 
 ```json
 { "statusLine": { "type": "command", "command": "~/.claude/channels/relay/statusline.sh" } }
-```
-
-이미 다른 statusLine 을 쓰고 있으면 입력을 한 번 받아 둘 다에 넘긴다.
-
-```json
-{ "statusLine": { "type": "command", "command": "IN=$(cat); printf '%s' \"$IN\" | 기존명령; printf ' '; printf '%s' \"$IN\" | ~/.claude/channels/relay/statusline.sh" } }
 ```
 
 | 표시 | 뜻 |

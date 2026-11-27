@@ -15,8 +15,8 @@
 //   CLAUDE_CODE_SESSION_ID   Claude Code 가 준다. 방 담당의 단위
 //   CLAUDE_PROJECT_DIR       Claude Code 가 준다. 서버 기록용
 //
-// 상태줄: 연결 상태를 설정 폴더의 state-<세션>.json 에 적고, statusline.sh 를 같은 폴더로 복사해 둔다.
-// Claude Code 의 statusLine 이 그 스크립트를 돌려 [team O 방] 한 줄을 띄운다.
+// 상태줄: 연결 상태를 설정 폴더의 state-<세션>.json 에 적는다. hooks/register.ts 가 그 파일을 읽어 프롬프트 아래
+// [team O 방] 한 줄을 띄운다. 모듈을 못 싣는 옛 Claude Code 용으로 statusline.sh 도 같은 폴더로 복사해 둔다.
 //
 // 구역
 //   1. 설정 파일        2. MCP 전송         3. 중계 서버 연결과 푸시
@@ -29,7 +29,7 @@ import { dirname, join as pathJoin } from 'node:path'
 import { createInterface } from 'node:readline'
 
 export const PROTO = 5
-export const VERSION = '1.1.0'
+export const VERSION = '1.2.0'
 const TEAM = process.env.AGENT_RELAY_TEAM === '1'
 const SESSION = process.env.CLAUDE_CODE_SESSION_ID ?? ''
 const CONFIG_PATH = process.env.AGENT_RELAY_CONFIG ?? pathJoin(homedir(), '.claude', 'channels', 'relay', 'config.json')
@@ -369,9 +369,6 @@ async function doctor(): Promise<string> {
     `${ws && welcome ? 'O' : 'X'} 서버 연결${stopped ? ` (멈춤: ${stopped})` : ''}`,
     `- 세션 id ${SESSION || '(없음)'}, 방 ${Object.keys(cfg.rooms ?? {}).join(', ') || '(없음)'}`,
   ]
-  let sl = false
-  try { sl = readFileSync(pathJoin(homedir(), '.claude', 'settings.json'), 'utf8').includes('channels/relay/statusline.sh') } catch { /* 설정 없음 */ }
-  lines.push(`${sl ? 'O' : 'X'} 상태줄${sl ? '' : `. ~/.claude/settings.json 의 statusLine command 에 ${STATUSLINE_PATH} 를 넣으세요`}`)
   if (ws && welcome) {
     const r = await request(ws, { type: 'doctor' })
     if (r.type === 'doctor') lines.push(`${Array.isArray(r.held) && r.held.length ? 'O' : 'X'} 받는 방 ${list(r.held)}${Array.isArray(r.heldByOther) && r.heldByOther.length ? ` (다른 세션: ${list(r.heldByOther)})` : ''}`, `- 나를 기다리는 보관 ${Number(r.queueForMe ?? 0)}건, 퇴근 ${r.away ? '예' : '아니요'}, 규약 rev ${String(r.protocolRev ?? '없음')}`)

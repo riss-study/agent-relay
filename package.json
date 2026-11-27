@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node --env-file-if-exists=.env server/relay.ts",
     "user": "node --env-file-if-exists=.env server/user.ts",
-    "test": "node --test --test-force-exit server/relay.test.ts server/web.test.ts plugin/plugin.test.ts",
+    "test": "node --test --test-force-exit server/relay.test.ts server/web.test.ts plugin/plugin.spec.ts",
     "check": "tsc --noEmit"
   },
   "dependencies": {
